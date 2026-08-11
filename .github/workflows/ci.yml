@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  test-and-build:
+    name: Test and build (${{ matrix.runner }})
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 20
+    strategy:
+      fail-fast: false
+      matrix:
+        runner: [macos-26, macos-26-intel]
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v5
+
+      - name: Select Xcode 26.6
+        run: sudo xcode-select --switch /Applications/Xcode_26.6.app/Contents/Developer
+
+      - name: Show toolchain
+        run: |
+          xcodebuild -version
+          swift --version
+
+      - name: Check whitespace
+        run: git diff --check
+
+      - name: Test and build app bundle
+        run: ./Scripts/check.sh
+
+      - name: Preserve app bundle permissions
+        run: ditto -c -k --keepParent build/MellowDesk.app MellowDesk-development.zip
+
+      - name: Upload development app
+        uses: actions/upload-artifact@v4
+        with:
+          name: MellowDesk-development-${{ matrix.runner }}
+          path: MellowDesk-development.zip
+          if-no-files-found: error
+          retention-days: 7
