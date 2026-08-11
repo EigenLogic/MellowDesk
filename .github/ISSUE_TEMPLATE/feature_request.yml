@@ -1,0 +1,24 @@
+name: Feature request
+description: Suggest a focused improvement to the workday companion.
+title: "[Feature]: "
+labels: [enhancement]
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: Workday problem
+      description: What problem should MellowDesk solve, and for whom?
+    validations:
+      required: true
+  - type: textarea
+    id: outcome
+    attributes:
+      label: Desired outcome
+      description: Describe the result rather than a specific implementation.
+    validations:
+      required: true
+  - type: textarea
+    id: privacy
+    attributes:
+      label: Privacy or interruption considerations
+      description: Note any camera, notification, personal-data, or distraction implications.
