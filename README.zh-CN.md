@@ -48,12 +48,19 @@
 ## 运行要求
 
 - macOS 13 或更高版本。
-- 与 Swift 5.10 兼容的完整 Xcode。
 - 摄像头可选；不使用摄像头也可手动计次。
+
+只有从源码构建时，才需要安装与 Swift 5.10 兼容的完整 Xcode。
+
+## 下载
+
+请从 [v0.1.0-beta.1 Release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.1)
+下载经过 Apple 公证的 macOS 通用版本。Release 同时提供 SHA-256 校验文件。App 使用
+EigenLogic Developer ID 签名、启用 Hardened Runtime，并已通过 Apple 公证。
 
 ## 从源码构建
 
-当前仓库提供源码构建 Beta。本地产物使用 ad-hoc 签名，不是官方公证分发包。
+本地源码构建使用 ad-hoc 签名，与 GitHub Release 中的官方公证分发包相互独立。
 
 构建并打开 App：
 
@@ -82,7 +89,7 @@
 
 - 摄像头计次有意采用近似识别，表现会受机型、光线、入镜位置和个人动作影响。
 - 首个 Beta 的 App 界面为中文；项目提供英文文档不代表 App 已完成英文本地化。
-- 从源码构建的 App 使用本地 ad-hoc 签名。正式公开二进制分发仍需 Developer ID、Hardened Runtime 和公证。
+- 源码构建的 App 使用本地 ad-hoc 签名；GitHub Release 官方版本已完成 Developer ID 签名与 Apple 公证。
 - 除自动测试外，还必须在至少一台真实 MacBook 前置摄像头上完成验收；请使用 [真人摄像头验收清单](docs/TEST_CHECKLIST.md)。
 
 ## 项目目录

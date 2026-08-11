@@ -17,6 +17,7 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 - Adaptive 5–8° recognition threshold for the gentle nod based on the stable demonstration peak.
 - Local daily, 7-day, and 30-day completion history with clear-history controls.
 - App Sandbox, camera-only device entitlement, and an Apple privacy manifest.
+- A universal arm64 + x86_64 public build with EigenLogic Developer ID signing, Hardened Runtime, Apple notarization, and a published SHA-256 checksum.
 - 32 deterministic automated tests and a real-camera acceptance checklist.
 - English and Simplified Chinese public documentation, privacy, contribution, conduct, security, exercise-content, and release documents.
 
@@ -24,6 +25,6 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 - The app UI is Chinese in this beta.
 - Camera counting is approximate and varies by environment and device.
-- Repository scripts create a locally ad-hoc signed source build; an official public binary would require Developer ID signing and notarization.
+- Local source builds are ad-hoc signed and are distinct from the official notarized GitHub Release.
 
 See the full [v0.1.0-beta.1 release notes](docs/releases/v0.1.0-beta.1.md).

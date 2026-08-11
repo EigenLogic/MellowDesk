@@ -48,12 +48,20 @@ The camera thresholds are approximate recognition thresholds, not medical range-
 ## Requirements
 
 - macOS 13 or later.
-- A full Xcode installation compatible with Swift 5.10.
 - A camera is optional; manual counting remains available.
+
+A full Xcode installation compatible with Swift 5.10 is required only when building from source.
+
+## Download
+
+Download the notarized universal macOS build from the
+[v0.1.0-beta.1 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.1).
+The release includes a SHA-256 checksum file. The app is signed by EigenLogic with Developer ID,
+uses Hardened Runtime, and is notarized by Apple.
 
 ## Build from source
 
-This repository currently documents a source-built beta. The local build is ad-hoc signed and is not an official notarized distribution.
+Local source builds use ad-hoc signing and are separate from the notarized GitHub Release.
 
 Build and open the app:
 
@@ -82,7 +90,7 @@ The app is assembled at `build/MellowDesk.app` with bundle identifier `cn.eigenl
 
 - Camera counting is intentionally approximate and varies with camera model, lighting, framing, and individual movement.
 - The first beta has Chinese app UI; English project documentation does not imply English UI localization.
-- A source-built app uses local ad-hoc signing. Public binary distribution still requires Developer ID signing, Hardened Runtime, and notarization.
+- Source-built apps use local ad-hoc signing; the official GitHub Release is Developer ID signed and notarized.
 - At least one real MacBook camera pass is required in addition to automated tests; use the [Real-camera Test Checklist](docs/TEST_CHECKLIST.md).
 
 ## Project layout
