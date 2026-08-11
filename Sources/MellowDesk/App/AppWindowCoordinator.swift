@@ -1,4 +1,5 @@
 import AppKit
+import OSLog
 import SwiftUI
 
 @MainActor
@@ -10,6 +11,12 @@ final class AppWindowCoordinator: NSObject {
   private var workoutWindow: NSWindow?
   private var workoutViewModel: WorkoutViewModel?
   private var workoutCloseObserver: WindowCloseObserver?
+  private var pendingInitialCameraAuthorizationWindow: NSWindow?
+  private var initialCameraAuthorizationRestoreExpiry: DispatchWorkItem?
+  private let logger = Logger(
+    subsystem: "cn.eigenlogic.mellowdesk",
+    category: "camera-focus"
+  )
 
   func showDashboard() {
     if let dashboardWindow {
@@ -71,11 +78,13 @@ final class AppWindowCoordinator: NSObject {
     let observer = WindowCloseObserver(
       onClose: { [weak self, weak viewModel] in
         viewModel?.windowDidClose()
+        self?.clearInitialCameraAuthorizationRestore()
         self?.workoutWindow = nil
         self?.workoutViewModel = nil
         self?.workoutCloseObserver = nil
       },
-      onMiniaturize: { [weak viewModel] in
+      onMiniaturize: { [weak self, weak viewModel] in
+        self?.clearInitialCameraAuthorizationRestore()
         viewModel?.workoutWindowDidBecomeHidden()
       },
       onDeminiaturize: { [weak viewModel] in
@@ -96,24 +105,84 @@ final class AppWindowCoordinator: NSObject {
   func applicationDidBecomeActive() {
     guard let workoutWindow, workoutWindow.isVisible, !workoutWindow.isMiniaturized else { return }
     workoutViewModel?.workoutWindowDidBecomeVisible()
+    scheduleInitialCameraAuthorizationRestoreIfNeeded()
   }
 
   func applicationDidHide() {
+    clearInitialCameraAuthorizationRestore()
     workoutViewModel?.workoutWindowDidBecomeHidden()
   }
 
   private func restoreWorkoutWindowAfterInitialCameraAuthorization() {
     guard let workoutWindow,
+      workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
       workoutWindow.isVisible,
       !workoutWindow.isMiniaturized,
       !NSApp.isHidden
     else { return }
 
-    // The system camera prompt temporarily owns the active window. Restore the
-    // same workout window after that one user-initiated prompt resolves, but do
-    // not reopen or deminiaturize a window the user intentionally dismissed.
-    NSApp.activate(ignoringOtherApps: true)
-    workoutWindow.makeKeyAndOrderFront(nil)
+    clearInitialCameraAuthorizationRestore()
+    pendingInitialCameraAuthorizationWindow = workoutWindow
+    logger.notice("Camera authorization resolved; waiting for application activation")
+
+    let expiry = DispatchWorkItem { [weak self, weak workoutWindow] in
+      guard let self,
+        let workoutWindow,
+        self.pendingInitialCameraAuthorizationWindow === workoutWindow
+      else { return }
+      self.logger.notice("Camera authorization focus restore expired")
+      self.clearInitialCameraAuthorizationRestore()
+    }
+    initialCameraAuthorizationRestoreExpiry = expiry
+    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: expiry)
+
+    requestApplicationActivation()
+    if NSApp.isActive {
+      scheduleInitialCameraAuthorizationRestoreIfNeeded()
+    }
+  }
+
+  private func scheduleInitialCameraAuthorizationRestoreIfNeeded() {
+    guard pendingInitialCameraAuthorizationWindow != nil else { return }
+    DispatchQueue.main.async { [weak self] in
+      self?.finishInitialCameraAuthorizationRestoreIfPossible()
+    }
+  }
+
+  private func finishInitialCameraAuthorizationRestoreIfPossible() {
+    guard let pendingWindow = pendingInitialCameraAuthorizationWindow,
+      pendingWindow === workoutWindow,
+      workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
+      pendingWindow.isVisible,
+      !pendingWindow.isMiniaturized,
+      !NSApp.isHidden
+    else {
+      clearInitialCameraAuthorizationRestore()
+      return
+    }
+
+    guard NSApp.isActive else {
+      requestApplicationActivation()
+      return
+    }
+
+    pendingWindow.makeKeyAndOrderFront(nil)
+    logger.notice("Workout window restored after camera authorization")
+    clearInitialCameraAuthorizationRestore()
+  }
+
+  private func requestApplicationActivation() {
+    if #available(macOS 14.0, *) {
+      NSApp.activate()
+    } else {
+      NSApp.activate(ignoringOtherApps: true)
+    }
+  }
+
+  private func clearInitialCameraAuthorizationRestore() {
+    pendingInitialCameraAuthorizationWindow = nil
+    initialCameraAuthorizationRestoreExpiry?.cancel()
+    initialCameraAuthorizationRestoreExpiry = nil
   }
 
   private func makeWindow<Content: View>(

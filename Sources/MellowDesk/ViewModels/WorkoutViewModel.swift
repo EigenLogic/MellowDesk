@@ -171,6 +171,14 @@ final class WorkoutViewModel: ObservableObject {
     return "请调整位置"
   }
 
+  var canRestoreAfterInitialCameraAuthorization: Bool {
+    usesCamera
+      && !didClose
+      && !isSuspendedForWindowVisibility
+      && phase != .ready
+      && phase != .completed
+  }
+
   var trackingStatusIcon: String {
     if !usesCamera { return "hand.tap" }
     if cameraService.isStarting { return "camera.fill" }
@@ -384,12 +392,7 @@ final class WorkoutViewModel: ObservableObject {
 
   private func initialCameraAuthorizationResolved() {
     initialCameraAuthorizationFocusCancellable = nil
-    guard usesCamera,
-      !didClose,
-      !isSuspendedForWindowVisibility,
-      phase != .ready,
-      phase != .completed
-    else { return }
+    guard canRestoreAfterInitialCameraAuthorization else { return }
     initialCameraAuthorizationDidResolve()
   }
 
