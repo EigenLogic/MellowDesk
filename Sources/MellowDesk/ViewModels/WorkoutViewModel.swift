@@ -38,12 +38,14 @@ final class WorkoutViewModel: ObservableObject {
   @Published private(set) var cameraErrorMessage: String?
 
   private let appModel: AppModel
+  private let initialCameraAuthorizationDidResolve: () -> Void
   private var calibrationSamples: [MotionSample] = []
   private var calibrationProfile: CalibrationProfile?
   private var repCounter: RepCounter?
   private var latestSample: MotionSample?
   private var startedAt: Date?
   private var transitionWorkItem: DispatchWorkItem?
+  private var initialCameraAuthorizationFocusCancellable: AnyCancellable?
   private var cancellables: Set<AnyCancellable> = []
   private var savedSession = false
   private var didClose = false
@@ -65,10 +67,12 @@ final class WorkoutViewModel: ObservableObject {
 
   init(
     appModel: AppModel,
-    cameraService: CameraCaptureService = CameraCaptureService()
+    cameraService: CameraCaptureService = CameraCaptureService(),
+    initialCameraAuthorizationDidResolve: @escaping () -> Void = {}
   ) {
     self.appModel = appModel
     self.cameraService = cameraService
+    self.initialCameraAuthorizationDidResolve = initialCameraAuthorizationDidResolve
 
     cameraService.motionSampleHandler = { [weak self] sample in
       self?.consume(sample)
@@ -85,6 +89,7 @@ final class WorkoutViewModel: ObservableObject {
 
   deinit {
     transitionWorkItem?.cancel()
+    initialCameraAuthorizationFocusCancellable?.cancel()
     cameraService.motionSampleHandler = nil
     cameraService.stop()
   }
@@ -185,6 +190,15 @@ final class WorkoutViewModel: ObservableObject {
 
   func begin() {
     guard phase == .ready else { return }
+    cameraService.refreshAuthorizationState()
+    if cameraService.authorizationState == .notDetermined {
+      initialCameraAuthorizationFocusCancellable = cameraService.$authorizationState
+        .first { $0 != .notDetermined }
+        .receive(on: RunLoop.main)
+        .sink { [weak self] _ in
+          self?.initialCameraAuthorizationResolved()
+        }
+    }
     startedAt = Date()
     appModel.workoutStarted()
     usesCamera = true
@@ -225,6 +239,8 @@ final class WorkoutViewModel: ObservableObject {
 
   func useManualMode() {
     guard phase != .completed else { return }
+    initialCameraAuthorizationFocusCancellable?.cancel()
+    initialCameraAuthorizationFocusCancellable = nil
     let isTransitioning = phase == .transitioning
     cameraService.stop()
     usesCamera = false
@@ -289,6 +305,8 @@ final class WorkoutViewModel: ObservableObject {
       phase != .ready,
       phase != .completed
     else { return }
+    initialCameraAuthorizationFocusCancellable?.cancel()
+    initialCameraAuthorizationFocusCancellable = nil
     isSuspendedForWindowVisibility = true
     invalidateCurrentAttempt()
     if phase == .calibrating {
@@ -338,6 +356,8 @@ final class WorkoutViewModel: ObservableObject {
     guard !didClose else { return }
     didClose = true
     transitionWorkItem?.cancel()
+    initialCameraAuthorizationFocusCancellable?.cancel()
+    initialCameraAuthorizationFocusCancellable = nil
     cameraService.motionSampleHandler = nil
     cameraService.stop()
     if phase != .completed {
@@ -360,6 +380,17 @@ final class WorkoutViewModel: ObservableObject {
     if resetCurrentExercise {
       currentRepetitions = 0
     }
+  }
+
+  private func initialCameraAuthorizationResolved() {
+    initialCameraAuthorizationFocusCancellable = nil
+    guard usesCamera,
+      !didClose,
+      !isSuspendedForWindowVisibility,
+      phase != .ready,
+      phase != .completed
+    else { return }
+    initialCameraAuthorizationDidResolve()
   }
 
   private func consumeCalibrationSample(_ sample: MotionSample) {

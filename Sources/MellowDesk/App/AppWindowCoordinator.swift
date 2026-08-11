@@ -53,7 +53,12 @@ final class AppWindowCoordinator: NSObject {
       return
     }
 
-    let viewModel = WorkoutViewModel(appModel: AppModel.shared)
+    let viewModel = WorkoutViewModel(
+      appModel: AppModel.shared,
+      initialCameraAuthorizationDidResolve: { [weak self] in
+        self?.restoreWorkoutWindowAfterInitialCameraAuthorization()
+      }
+    )
     let view = WorkoutView(viewModel: viewModel)
       .environmentObject(AppModel.shared)
     let window = makeWindow(
@@ -95,6 +100,20 @@ final class AppWindowCoordinator: NSObject {
 
   func applicationDidHide() {
     workoutViewModel?.workoutWindowDidBecomeHidden()
+  }
+
+  private func restoreWorkoutWindowAfterInitialCameraAuthorization() {
+    guard let workoutWindow,
+      workoutWindow.isVisible,
+      !workoutWindow.isMiniaturized,
+      !NSApp.isHidden
+    else { return }
+
+    // The system camera prompt temporarily owns the active window. Restore the
+    // same workout window after that one user-initiated prompt resolves, but do
+    // not reopen or deminiaturize a window the user intentionally dismissed.
+    NSApp.activate(ignoringOtherApps: true)
+    workoutWindow.makeKeyAndOrderFront(nil)
   }
 
   private func makeWindow<Content: View>(
