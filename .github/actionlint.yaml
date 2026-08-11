@@ -1,0 +1,7 @@
+self-hosted-runner:
+  # actionlint's built-in label list can lag behind newly released GitHub-hosted images.
+  labels:
+    - macos-26
+    - macos-26-intel
+
+config-variables: null
