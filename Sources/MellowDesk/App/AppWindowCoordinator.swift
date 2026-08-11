@@ -12,7 +12,7 @@ final class AppWindowCoordinator: NSObject {
   private var workoutViewModel: WorkoutViewModel?
   private var workoutCloseObserver: WindowCloseObserver?
   private var pendingInitialCameraAuthorizationWindow: NSWindow?
-  private var initialCameraAuthorizationRestoreExpiry: DispatchWorkItem?
+  private var initialCameraAuthorizationRestoreFallback: DispatchWorkItem?
   private let logger = Logger(
     subsystem: "cn.eigenlogic.mellowdesk",
     category: "camera-focus"
@@ -118,6 +118,7 @@ final class AppWindowCoordinator: NSObject {
       workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
       workoutWindow.isVisible,
       !workoutWindow.isMiniaturized,
+      workoutWindow.isOnActiveSpace,
       !NSApp.isHidden
     else { return }
 
@@ -125,16 +126,17 @@ final class AppWindowCoordinator: NSObject {
     pendingInitialCameraAuthorizationWindow = workoutWindow
     logger.notice("Camera authorization resolved; waiting for application activation")
 
-    let expiry = DispatchWorkItem { [weak self, weak workoutWindow] in
+    let fallback = DispatchWorkItem { [weak self, weak workoutWindow] in
       guard let self,
         let workoutWindow,
         self.pendingInitialCameraAuthorizationWindow === workoutWindow
       else { return }
-      self.logger.notice("Camera authorization focus restore expired")
-      self.clearInitialCameraAuthorizationRestore()
+      self.finishInitialCameraAuthorizationRestoreIfPossible(
+        allowingInactiveVisualFallback: true
+      )
     }
-    initialCameraAuthorizationRestoreExpiry = expiry
-    DispatchQueue.main.asyncAfter(deadline: .now() + 1.5, execute: expiry)
+    initialCameraAuthorizationRestoreFallback = fallback
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: fallback)
 
     requestApplicationActivation()
     if NSApp.isActive {
@@ -149,14 +151,32 @@ final class AppWindowCoordinator: NSObject {
     }
   }
 
-  private func finishInitialCameraAuthorizationRestoreIfPossible() {
+  private func finishInitialCameraAuthorizationRestoreIfPossible(
+    allowingInactiveVisualFallback: Bool = false
+  ) {
     guard let pendingWindow = pendingInitialCameraAuthorizationWindow,
       pendingWindow === workoutWindow,
       workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
       pendingWindow.isVisible,
       !pendingWindow.isMiniaturized,
+      pendingWindow.isOnActiveSpace,
       !NSApp.isHidden
     else {
+      clearInitialCameraAuthorizationRestore()
+      return
+    }
+
+    if allowingInactiveVisualFallback {
+      if NSApp.isActive {
+        pendingWindow.makeKeyAndOrderFront(nil)
+        logger.notice("Workout window confirmed after camera authorization")
+      } else {
+        // macOS can decline activation requests from an accessory app. This
+        // one-shot fallback only restores visibility after the user-triggered
+        // camera prompt; it does not change the window level or stay on top.
+        pendingWindow.orderFrontRegardless()
+        logger.notice("Workout window restored visibly after activation was declined")
+      }
       clearInitialCameraAuthorizationRestore()
       return
     }
@@ -167,8 +187,7 @@ final class AppWindowCoordinator: NSObject {
     }
 
     pendingWindow.makeKeyAndOrderFront(nil)
-    logger.notice("Workout window restored after camera authorization")
-    clearInitialCameraAuthorizationRestore()
+    logger.notice("Application became active while camera focus restore was pending")
   }
 
   private func requestApplicationActivation() {
@@ -181,8 +200,8 @@ final class AppWindowCoordinator: NSObject {
 
   private func clearInitialCameraAuthorizationRestore() {
     pendingInitialCameraAuthorizationWindow = nil
-    initialCameraAuthorizationRestoreExpiry?.cancel()
-    initialCameraAuthorizationRestoreExpiry = nil
+    initialCameraAuthorizationRestoreFallback?.cancel()
+    initialCameraAuthorizationRestoreFallback = nil
   }
 
   private func makeWindow<Content: View>(
