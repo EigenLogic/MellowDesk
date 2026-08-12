@@ -264,6 +264,37 @@ final class ReminderSchedulerTests: XCTestCase {
     XCTAssertEqual(scheduler.nextDue, secondDue)
   }
 
+  func testLateSameDueAddReplaysCurrentFallbackInsteadOfDeletingIt() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let identifier = ReminderOccurrence(dueAt: due).notificationRequestIdentifier
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextDueDefaultsKey
+    )
+    context.client.holdNextAdd = true
+    let scheduler = context.makeScheduler()
+    let activation = Task { await scheduler.activate(settings: settings, now: now) }
+
+    for _ in 0..<100 where context.client.heldAddIdentifier == nil {
+      await Task.yield()
+    }
+    XCTAssertEqual(context.client.heldAddIdentifier, identifier)
+
+    await scheduler.refreshIfNeeded(settings: settings, now: now.addingTimeInterval(1))
+    XCTAssertNotNil(context.client.requests[identifier])
+
+    context.client.completeHeldAdd()
+    await activation.value
+
+    XCTAssertNotNil(context.client.requests[identifier])
+    XCTAssertEqual(scheduler.nextDue, due)
+    XCTAssertGreaterThanOrEqual(
+      context.client.addedIdentifiers.filter { $0 == identifier }.count, 3)
+  }
+
   private var settings: AppSettings {
     AppSettings(
       reminderIntervalMinutes: 50,
@@ -340,6 +371,7 @@ private final class TestReminderNotificationClient: ReminderNotificationClient {
   var removedDeliveredIdentifiers: Set<String> = []
   var addError: Error?
   var holdNextAdd = false
+  private(set) var addedIdentifiers: [String] = []
   private(set) var heldAddIdentifier: String?
   private var heldAddContinuation: CheckedContinuation<Void, Error>?
   private(set) var delegate: (any UNUserNotificationCenterDelegate)?
@@ -362,6 +394,7 @@ private final class TestReminderNotificationClient: ReminderNotificationClient {
   }
 
   func add(_ request: UNNotificationRequest) async throws {
+    addedIdentifiers.append(request.identifier)
     if let addError { throw addError }
     if holdNextAdd {
       holdNextAdd = false

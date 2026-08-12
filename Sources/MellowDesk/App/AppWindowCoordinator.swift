@@ -2,6 +2,16 @@ import AppKit
 import OSLog
 import SwiftUI
 
+struct ReminderContentIdentity {
+  private(set) var renderedReminderID: ReminderOccurrence.ID?
+
+  mutating func shouldRender(_ reminderID: ReminderOccurrence.ID) -> Bool {
+    guard renderedReminderID != reminderID else { return false }
+    renderedReminderID = reminderID
+    return true
+  }
+}
+
 @MainActor
 final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   static let shared = AppWindowCoordinator()
@@ -19,6 +29,7 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private var statusPopover: NSPopover?
   private var statusPopoverMode: StatusPopoverMode?
   private var reminderPanel: NSPanel?
+  private var reminderContentIdentity = ReminderContentIdentity()
   private var desiredReminder: ReminderOccurrence?
   private var lastAudibleReminderID: String?
   private var reminderWorkoutRestore: DispatchWorkItem?
@@ -269,6 +280,7 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
       reminderPanel = panel
     }
 
+    updateReminderContent(in: panel, for: occurrence)
     positionReminderPanel(panel)
     panel.orderFrontRegardless()
     reminderLogger.notice(
@@ -302,11 +314,16 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     panel.isOpaque = false
     panel.hasShadow = true
     panel.animationBehavior = .utilityWindow
+    return panel
+  }
+
+  private func updateReminderContent(in panel: NSPanel, for occurrence: ReminderOccurrence) {
+    guard reminderContentIdentity.shouldRender(occurrence.id) else { return }
     panel.contentViewController = NSHostingController(
       rootView: StatusReminderView()
         .environmentObject(AppModel.shared)
+        .id(occurrence.id)
     )
-    return panel
   }
 
   private func positionReminderPanel(_ panel: NSPanel) {

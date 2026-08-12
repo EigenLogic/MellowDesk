@@ -106,7 +106,7 @@ Scripts                      checks, app assembly, and local launch
 docs                         product, technical, exercise, test, and release documentation
 ```
 
-The repository currently contains **32 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
+The repository currently contains **45 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
 
 ## Roadmap
 

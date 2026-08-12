@@ -2,7 +2,7 @@
 
 Effective date / 生效日期: 2026-08-11
 
-Applies to / 适用版本: v0.1.0-beta.1 and v0.1.0-beta.2
+Applies to / 适用版本: v0.1.0-beta.1 through v0.1.0-beta.3
 
 ## English
 

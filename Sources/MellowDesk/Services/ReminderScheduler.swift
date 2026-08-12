@@ -518,9 +518,23 @@ final class ReminderScheduler: ObservableObject {
     do {
       try await notificationClient.add(request)
       guard revision == scheduleRevision, !isWorkoutActive else {
-        notificationClient.removePendingNotificationRequests(
-          withIdentifiers: [occurrence.notificationRequestIdentifier]
-        )
+        if !isWorkoutActive,
+          activeReminder == nil,
+          nextDue == due
+        {
+          // A same-due refresh uses the same notification identifier. The older
+          // asynchronous add may have just replaced the newer request, so replay
+          // the current generation instead of deleting the shared identifier.
+          await replacePendingNotification(
+            dueAt: due,
+            settings: resolvedSettings(),
+            now: Date()
+          )
+        } else {
+          notificationClient.removePendingNotificationRequests(
+            withIdentifiers: [occurrence.notificationRequestIdentifier]
+          )
+        }
         return
       }
     } catch {

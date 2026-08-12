@@ -18,6 +18,8 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 - Reminders no longer disappear after the standard five-second macOS banner window.
 - Starting a workout from the nonactivating reminder card now reliably brings the workout window to the front.
 - Unique notification identifiers prevent a newly scheduled reminder from erasing the prior delivered notification.
+- Each new reminder occurrence gets fresh interaction state, so later cycles remain actionable.
+- Concurrent refreshes for the same due time no longer remove the current system fallback.
 
 See the full [v0.1.0-beta.3 release notes](docs/releases/v0.1.0-beta.3.md).
 
