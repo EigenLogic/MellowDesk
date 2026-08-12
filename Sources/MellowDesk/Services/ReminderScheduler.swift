@@ -522,14 +522,10 @@ final class ReminderScheduler: ObservableObject {
           activeReminder == nil,
           nextDue == due
         {
-          // A same-due refresh uses the same notification identifier. The older
-          // asynchronous add may have just replaced the newer request, so replay
-          // the current generation instead of deleting the shared identifier.
-          await replacePendingNotification(
-            dueAt: due,
-            settings: resolvedSettings(),
-            now: Date()
-          )
+          // A same-due refresh uses the same identifier. This successful add may
+          // replace newer content, but it still leaves the correct due fallback
+          // present. Keep it instead of deleting or recursively rescheduling it.
+          return
         } else {
           notificationClient.removePendingNotificationRequests(
             withIdentifiers: [occurrence.notificationRequestIdentifier]

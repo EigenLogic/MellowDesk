@@ -264,7 +264,7 @@ final class ReminderSchedulerTests: XCTestCase {
     XCTAssertEqual(scheduler.nextDue, secondDue)
   }
 
-  func testLateSameDueAddReplaysCurrentFallbackInsteadOfDeletingIt() async throws {
+  func testLateSameDueAddsKeepOneFallbackWithoutRecursiveReplay() async throws {
     let context = makeContext()
     defer { context.clearDefaults() }
     let now = date(2030, 8, 12, 10, 0)
@@ -278,21 +278,31 @@ final class ReminderSchedulerTests: XCTestCase {
     let scheduler = context.makeScheduler()
     let activation = Task { await scheduler.activate(settings: settings, now: now) }
 
-    for _ in 0..<100 where context.client.heldAddIdentifier == nil {
+    for _ in 0..<100 where context.client.heldAddCount < 1 {
       await Task.yield()
     }
+    XCTAssertEqual(context.client.heldAddCount, 1)
     XCTAssertEqual(context.client.heldAddIdentifier, identifier)
 
-    await scheduler.refreshIfNeeded(settings: settings, now: now.addingTimeInterval(1))
+    context.client.holdNextAdd = true
+    let refresh = Task {
+      await scheduler.refreshIfNeeded(settings: settings, now: now.addingTimeInterval(1))
+    }
+    for _ in 0..<100 where context.client.heldAddCount < 2 {
+      await Task.yield()
+    }
+    XCTAssertEqual(context.client.heldAddCount, 2)
+
+    await scheduler.refreshIfNeeded(settings: settings, now: now.addingTimeInterval(2))
     XCTAssertNotNil(context.client.requests[identifier])
 
-    context.client.completeHeldAdd()
+    context.client.completeAllHeldAdds()
     await activation.value
+    await refresh.value
 
     XCTAssertNotNil(context.client.requests[identifier])
     XCTAssertEqual(scheduler.nextDue, due)
-    XCTAssertGreaterThanOrEqual(
-      context.client.addedIdentifiers.filter { $0 == identifier }.count, 3)
+    XCTAssertEqual(context.client.addedIdentifiers.filter { $0 == identifier }.count, 3)
   }
 
   private var settings: AppSettings {
@@ -372,10 +382,13 @@ private final class TestReminderNotificationClient: ReminderNotificationClient {
   var addError: Error?
   var holdNextAdd = false
   private(set) var addedIdentifiers: [String] = []
-  private(set) var heldAddIdentifier: String?
-  private var heldAddContinuation: CheckedContinuation<Void, Error>?
+  private var heldAddIdentifiers: [String] = []
+  private var heldAddContinuations: [CheckedContinuation<Void, Error>] = []
   private(set) var delegate: (any UNUserNotificationCenterDelegate)?
   private(set) var categories: Set<UNNotificationCategory> = []
+
+  var heldAddIdentifier: String? { heldAddIdentifiers.last }
+  var heldAddCount: Int { heldAddContinuations.count }
 
   func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
     self.delegate = delegate
@@ -398,20 +411,29 @@ private final class TestReminderNotificationClient: ReminderNotificationClient {
     if let addError { throw addError }
     if holdNextAdd {
       holdNextAdd = false
-      heldAddIdentifier = request.identifier
+      heldAddIdentifiers.append(request.identifier)
       try await withCheckedThrowingContinuation {
         (continuation: CheckedContinuation<Void, Error>) in
-        heldAddContinuation = continuation
+        heldAddContinuations.append(continuation)
       }
-      heldAddIdentifier = nil
     }
     requests[request.identifier] = request
   }
 
   func completeHeldAdd() {
-    let continuation = heldAddContinuation
-    heldAddContinuation = nil
-    continuation?.resume(returning: ())
+    guard !heldAddContinuations.isEmpty else { return }
+    let continuation = heldAddContinuations.removeFirst()
+    heldAddIdentifiers.removeFirst()
+    continuation.resume(returning: ())
+  }
+
+  func completeAllHeldAdds() {
+    let continuations = heldAddContinuations
+    heldAddContinuations.removeAll()
+    heldAddIdentifiers.removeAll()
+    for continuation in continuations {
+      continuation.resume(returning: ())
+    }
   }
 
   func pendingRequestIdentifiers() async -> Set<String> {
