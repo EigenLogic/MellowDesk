@@ -80,21 +80,26 @@ struct MenuBarContentView: View {
             .foregroundStyle(AppTheme.accent)
         }
 
-        Text(reminderDescription)
+        reminderDescription
           .font(.caption)
           .foregroundStyle(.secondary)
       }
     }
   }
 
-  private var reminderDescription: String {
+  @ViewBuilder
+  private var reminderDescription: some View {
     if appModel.settings.isPaused {
-      return "提醒已暂停至明天"
+      Text("提醒已暂停至明天")
+    } else if let nextDue = appModel.nextDue {
+      HStack(spacing: 0) {
+        Text("下次提醒 ")
+        // The relative date Text owns a clock and refreshes as time passes.
+        Text(nextDue, style: .relative)
+      }
+    } else {
+      Text("提醒尚未排定")
     }
-    guard let nextDue = appModel.nextDue else {
-      return "提醒尚未排定"
-    }
-    return "下次提醒 \(AppFormatters.relative.localizedString(for: nextDue, relativeTo: Date()))"
   }
 
   private func menuRow(

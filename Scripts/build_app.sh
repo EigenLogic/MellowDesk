@@ -10,7 +10,7 @@ CONTENTS_DIR="${APP_DIR}/Contents"
 CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-1}"
+BUILD_NUMBER="${BUILD_NUMBER:-2}"
 
 if [[ "${APP_DIR}" != "${PROJECT_DIR}/build/MellowDesk.app" ]]; then
     print -u2 "拒绝清理未验证的构建目录：${APP_DIR}"

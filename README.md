@@ -55,7 +55,7 @@ A full Xcode installation compatible with Swift 5.10 is required only when build
 ## Download
 
 Download the notarized universal macOS build from the
-[v0.1.0-beta.1 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.1).
+[v0.1.0-beta.2 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.2).
 The release includes a SHA-256 checksum file. The app is signed by EigenLogic with Developer ID,
 uses Hardened Runtime, and is notarized by Apple.
 
@@ -129,7 +129,7 @@ Roadmap items are exploratory and are not claims about current functionality.
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
-- [v0.1.0-beta.1 Release Notes](docs/releases/v0.1.0-beta.1.md)
+- [v0.1.0-beta.2 Release Notes](docs/releases/v0.1.0-beta.2.md)
 
 ## Contributing and security
 
