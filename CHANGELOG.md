@@ -6,6 +6,23 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 - No unreleased user-visible changes recorded.
 
+## [0.1.0-beta.3] - 2026-08-12
+
+### Added
+
+- A persistent reminder card anchored to the MellowDesk menu-bar icon, with Start, Snooze 10 minutes, and Pause Today actions.
+- Durable overdue-reminder recovery across wake, app activation, clock changes, and app restarts.
+
+### Fixed
+
+- Reminders no longer disappear after the standard five-second macOS banner window.
+- Starting a workout from the nonactivating reminder card now reliably brings the workout window to the front.
+- Unique notification identifiers prevent a newly scheduled reminder from erasing the prior delivered notification.
+- Each new reminder occurrence gets fresh interaction state, so later cycles remain actionable.
+- Concurrent refreshes for the same due time no longer remove the current system fallback.
+
+See the full [v0.1.0-beta.3 release notes](docs/releases/v0.1.0-beta.3.md).
+
 ## [0.1.0-beta.2] - 2026-08-12
 
 ### Fixed

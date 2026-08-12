@@ -25,17 +25,20 @@ struct MenuBarContentView: View {
         if appModel.settings.isPaused {
           Button("恢复提醒") {
             appModel.resumeReminders()
+            AppWindowCoordinator.shared.dismissStatusMenu()
           }
           .frame(maxWidth: .infinity)
         } else {
           HStack(spacing: 8) {
             Button("推迟 10 分钟") {
               appModel.snoozeTenMinutes()
+              AppWindowCoordinator.shared.dismissStatusMenu()
             }
             .frame(maxWidth: .infinity)
 
             Button("今天暂停") {
               appModel.pauseUntilTomorrow()
+              AppWindowCoordinator.shared.dismissStatusMenu()
             }
             .frame(maxWidth: .infinity)
           }
@@ -91,6 +94,8 @@ struct MenuBarContentView: View {
   private var reminderDescription: some View {
     if appModel.settings.isPaused {
       Text("提醒已暂停至明天")
+    } else if appModel.activeReminder != nil {
+      Text("提醒等待处理中")
     } else if let nextDue = appModel.nextDue {
       HStack(spacing: 0) {
         Text("下次提醒 ")

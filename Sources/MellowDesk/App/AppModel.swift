@@ -38,6 +38,7 @@ final class AppModel: ObservableObject {
 
   var settings: AppSettings { settingsStore.settings }
   var nextDue: Date? { reminderScheduler.nextDue }
+  var activeReminder: ReminderOccurrence? { reminderScheduler.activeReminder }
 
   var todayCompletedCount: Int {
     completedSessions(on: Date()).count
@@ -55,6 +56,13 @@ final class AppModel: ObservableObject {
     didStart = true
 
     launchAtLoginService.refresh()
+    reminderScheduler.$activeReminder
+      .removeDuplicates()
+      .sink { occurrence in
+        AppWindowCoordinator.shared.syncReminder(occurrence)
+      }
+      .store(in: &cancellables)
+
     NotificationCenter.default.publisher(for: .mellowDeskStartWorkoutRequested)
       .receive(on: RunLoop.main)
       .sink { _ in
@@ -106,6 +114,14 @@ final class AppModel: ObservableObject {
     Task {
       await reminderScheduler.snoozeTenMinutes(settings: settings)
     }
+  }
+
+  @discardableResult
+  func startCurrentReminder(id: ReminderOccurrence.ID) -> Bool {
+    guard activeReminder?.id == id else { return false }
+    AppWindowCoordinator.shared.showWorkoutFromReminder()
+    guard reminderScheduler.workoutStarted(reminderID: id) else { return false }
+    return true
   }
 
   func pauseUntilTomorrow() {

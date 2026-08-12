@@ -2,23 +2,78 @@ import AppKit
 import OSLog
 import SwiftUI
 
+struct ReminderContentIdentity {
+  private(set) var renderedReminderID: ReminderOccurrence.ID?
+
+  mutating func shouldRender(_ reminderID: ReminderOccurrence.ID) -> Bool {
+    guard renderedReminderID != reminderID else { return false }
+    renderedReminderID = reminderID
+    return true
+  }
+}
+
 @MainActor
-final class AppWindowCoordinator: NSObject {
+final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   static let shared = AppWindowCoordinator()
+
+  private enum StatusPopoverMode: Equatable {
+    case menu
+  }
 
   private var dashboardWindow: NSWindow?
   private var settingsWindow: NSWindow?
   private var workoutWindow: NSWindow?
   private var workoutViewModel: WorkoutViewModel?
   private var workoutCloseObserver: WindowCloseObserver?
+  private var statusItem: NSStatusItem?
+  private var statusPopover: NSPopover?
+  private var statusPopoverMode: StatusPopoverMode?
+  private var reminderPanel: NSPanel?
+  private var reminderContentIdentity = ReminderContentIdentity()
+  private var desiredReminder: ReminderOccurrence?
+  private var lastAudibleReminderID: String?
+  private var reminderWorkoutRestore: DispatchWorkItem?
+  private weak var pendingReminderWorkoutWindow: NSWindow?
   private var pendingInitialCameraAuthorizationWindow: NSWindow?
   private var initialCameraAuthorizationRestoreFallback: DispatchWorkItem?
   private let logger = Logger(
     subsystem: "cn.eigenlogic.mellowdesk",
     category: "camera-focus"
   )
+  private let reminderLogger = Logger(
+    subsystem: "cn.eigenlogic.mellowdesk",
+    category: "status-reminder"
+  )
+
+  func installStatusItem() {
+    guard statusItem == nil else { return }
+
+    let item = NSStatusBar.system.statusItem(withLength: NSStatusItem.squareLength)
+    if let button = item.button {
+      let image = NSImage(
+        systemSymbolName: "leaf.fill",
+        accessibilityDescription: "小桌伴"
+      )
+      image?.isTemplate = true
+      button.image = image
+      button.toolTip = "小桌伴"
+      button.target = self
+      button.action = #selector(statusItemClicked(_:))
+    }
+    statusItem = item
+
+    let popover = NSPopover()
+    popover.animates = true
+    popover.delegate = self
+    statusPopover = popover
+
+    if let desiredReminder {
+      showReminderPanel(desiredReminder)
+    }
+  }
 
   func showDashboard() {
+    dismissStatusMenu()
     if let dashboardWindow {
       present(dashboardWindow)
       return
@@ -37,6 +92,7 @@ final class AppWindowCoordinator: NSObject {
   }
 
   func showSettings() {
+    dismissStatusMenu()
     if let settingsWindow {
       present(settingsWindow)
       return
@@ -55,9 +111,14 @@ final class AppWindowCoordinator: NSObject {
   }
 
   func showWorkout() {
+    dismissStatusMenu()
     if let workoutWindow {
-      present(workoutWindow)
-      return
+      if workoutViewModel?.phase == .completed {
+        workoutWindow.close()
+      } else {
+        present(workoutWindow)
+        return
+      }
     }
 
     let viewModel = WorkoutViewModel(
@@ -79,6 +140,9 @@ final class AppWindowCoordinator: NSObject {
       onClose: { [weak self, weak viewModel] in
         viewModel?.windowDidClose()
         self?.clearInitialCameraAuthorizationRestore()
+        self?.reminderWorkoutRestore?.cancel()
+        self?.reminderWorkoutRestore = nil
+        self?.pendingReminderWorkoutWindow = nil
         self?.workoutWindow = nil
         self?.workoutViewModel = nil
         self?.workoutCloseObserver = nil
@@ -98,11 +162,71 @@ final class AppWindowCoordinator: NSObject {
     present(window)
   }
 
+  /// A click inside a nonactivating reminder panel does not automatically activate
+  /// this accessory app. End the panel's mouse event first, then create and force-front
+  /// the explicitly requested workout before retrying normal key-window activation.
+  func showWorkoutFromReminder() {
+    reminderWorkoutRestore?.cancel()
+    let present = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      self.showWorkout()
+      guard let workoutWindow = self.workoutWindow else { return }
+
+      self.pendingReminderWorkoutWindow = workoutWindow
+      workoutWindow.orderFrontRegardless()
+      self.requestApplicationActivation()
+      self.reminderLogger.notice(
+        "Reminder workout force-fronted; appActive=\(NSApp.isActive, privacy: .public)"
+      )
+      let fallback = DispatchWorkItem { [weak self, weak workoutWindow] in
+        guard let self, let workoutWindow, workoutWindow === self.workoutWindow else { return }
+        if NSApp.isActive {
+          workoutWindow.makeKeyAndOrderFront(nil)
+        } else {
+          workoutWindow.orderFrontRegardless()
+        }
+        self.pendingReminderWorkoutWindow = nil
+        self.reminderWorkoutRestore = nil
+      }
+      self.reminderWorkoutRestore = fallback
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: fallback)
+    }
+    reminderWorkoutRestore = present
+    DispatchQueue.main.async(execute: present)
+  }
+
   func closeWorkout() {
     workoutWindow?.close()
   }
 
+  func syncReminder(_ occurrence: ReminderOccurrence?) {
+    desiredReminder = occurrence
+    guard let occurrence else {
+      reminderPanel?.orderOut(nil)
+      return
+    }
+    showReminderPanel(occurrence)
+  }
+
+  func dismissStatusMenu() {
+    guard statusPopoverMode == .menu else { return }
+    statusPopover?.close()
+    statusPopoverMode = nil
+  }
+
   func applicationDidBecomeActive() {
+    if let pendingReminderWorkoutWindow,
+      pendingReminderWorkoutWindow === workoutWindow,
+      pendingReminderWorkoutWindow.isVisible
+    {
+      pendingReminderWorkoutWindow.makeKeyAndOrderFront(nil)
+      self.pendingReminderWorkoutWindow = nil
+      reminderWorkoutRestore?.cancel()
+      reminderWorkoutRestore = nil
+    }
+    if let activeReminder = AppModel.shared.activeReminder {
+      showReminderPanel(activeReminder)
+    }
     guard let workoutWindow, workoutWindow.isVisible, !workoutWindow.isMiniaturized else { return }
     workoutViewModel?.workoutWindowDidBecomeVisible()
     scheduleInitialCameraAuthorizationRestoreIfNeeded()
@@ -111,6 +235,135 @@ final class AppWindowCoordinator: NSObject {
   func applicationDidHide() {
     clearInitialCameraAuthorizationRestore()
     workoutViewModel?.workoutWindowDidBecomeHidden()
+  }
+
+  func applicationDidChangeScreenParameters() {
+    if let activeReminder = AppModel.shared.activeReminder {
+      showReminderPanel(activeReminder)
+    }
+  }
+
+  func popoverDidClose(_ notification: Notification) {
+    statusPopoverMode = nil
+  }
+
+  @objc private func statusItemClicked(_ sender: Any?) {
+    if let activeReminder = AppModel.shared.activeReminder {
+      showReminderPanel(activeReminder)
+    } else if statusPopover?.isShown == true {
+      statusPopover?.close()
+      statusPopoverMode = nil
+    } else {
+      showMenuPopover()
+    }
+  }
+
+  private func showMenuPopover() {
+    guard desiredReminder == nil else { return }
+    let view = MenuBarContentView()
+      .environmentObject(AppModel.shared)
+    presentStatusPopover(
+      contentSize: NSSize(width: 330, height: 288),
+      contentViewController: NSHostingController(rootView: view)
+    )
+  }
+
+  private func showReminderPanel(_ occurrence: ReminderOccurrence) {
+    statusPopover?.close()
+    statusPopoverMode = nil
+
+    let panel: NSPanel
+    if let reminderPanel {
+      panel = reminderPanel
+    } else {
+      panel = makeReminderPanel()
+      reminderPanel = panel
+    }
+
+    updateReminderContent(in: panel, for: occurrence)
+    positionReminderPanel(panel)
+    panel.orderFrontRegardless()
+    reminderLogger.notice(
+      "Anchored reminder panel shown; appActive=\(NSApp.isActive, privacy: .public)"
+    )
+
+    if occurrence.id != lastAudibleReminderID {
+      lastAudibleReminderID = occurrence.id
+      if AppModel.shared.settings.soundEnabled {
+        NSSound.beep()
+      }
+    }
+  }
+
+  private func makeReminderPanel() -> NSPanel {
+    let size = NSSize(width: 390, height: 198)
+    let panel = NSPanel(
+      contentRect: NSRect(origin: .zero, size: size),
+      styleMask: [.borderless, .nonactivatingPanel],
+      backing: .buffered,
+      defer: false
+    )
+    panel.level = .floating
+    panel.isFloatingPanel = true
+    panel.hidesOnDeactivate = false
+    panel.becomesKeyOnlyIfNeeded = true
+    panel.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+    panel.isReleasedWhenClosed = false
+    panel.isMovable = false
+    panel.backgroundColor = .clear
+    panel.isOpaque = false
+    panel.hasShadow = true
+    panel.animationBehavior = .utilityWindow
+    return panel
+  }
+
+  private func updateReminderContent(in panel: NSPanel, for occurrence: ReminderOccurrence) {
+    guard reminderContentIdentity.shouldRender(occurrence.id) else { return }
+    panel.contentViewController = NSHostingController(
+      rootView: StatusReminderView()
+        .environmentObject(AppModel.shared)
+        .id(occurrence.id)
+    )
+  }
+
+  private func positionReminderPanel(_ panel: NSPanel) {
+    guard let button = statusItem?.button, let buttonWindow = button.window else { return }
+    let buttonFrame = buttonWindow.convertToScreen(button.convert(button.bounds, to: nil))
+    guard let screen = buttonWindow.screen ?? NSScreen.main else { return }
+    let visibleFrame = screen.visibleFrame
+
+    let preferredX = buttonFrame.midX - panel.frame.width + 34
+    let minimumX = visibleFrame.minX + 8
+    let maximumX = visibleFrame.maxX - panel.frame.width - 8
+    let origin = NSPoint(
+      x: min(max(preferredX, minimumX), maximumX),
+      y: buttonFrame.minY - panel.frame.height - 1
+    )
+    panel.setFrameOrigin(origin)
+  }
+
+  private func presentStatusPopover(
+    contentSize: NSSize,
+    contentViewController: NSViewController
+  ) {
+    guard let button = statusItem?.button, let popover = statusPopover else { return }
+
+    let show: @MainActor @Sendable () -> Void = { [weak self, weak popover, weak button] in
+      guard let self, let popover, let button else { return }
+      guard self.desiredReminder == nil else { return }
+      popover.behavior = .transient
+      popover.contentSize = contentSize
+      popover.contentViewController = contentViewController
+      self.statusPopoverMode = .menu
+      popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+    }
+
+    if popover.isShown {
+      popover.close()
+      DispatchQueue.main.async(execute: show)
+    } else {
+      show()
+    }
   }
 
   private func restoreWorkoutWindowAfterInitialCameraAuthorization() {
