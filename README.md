@@ -21,6 +21,7 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 ## What this beta includes
 
 - A menu-bar companion with configurable workdays, work hours, reminder intervals, sound, snooze, pause, and launch at login.
+- A persistent reminder anchored to the menu-bar leaf that waits for Start, Snooze, or Pause instead of disappearing after a few seconds.
 - Local notifications with **Start** and **Snooze 10 minutes** actions.
 - The NeckEase routine: slow left/right rotation, gentle left/right lateral flexion, and a gentle nod back to neutral.
 - Animated guidance, current direction, target repetitions, hold/return feedback, and completion results.
@@ -55,7 +56,7 @@ A full Xcode installation compatible with Swift 5.10 is required only when build
 ## Download
 
 Download the notarized universal macOS build from the
-[v0.1.0-beta.2 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.2).
+[v0.1.0-beta.3 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.3).
 The release includes a SHA-256 checksum file. The app is signed by EigenLogic with Developer ID,
 uses Hardened Runtime, and is notarized by Apple.
 
@@ -129,7 +130,7 @@ Roadmap items are exploratory and are not claims about current functionality.
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
-- [v0.1.0-beta.2 Release Notes](docs/releases/v0.1.0-beta.2.md)
+- [v0.1.0-beta.3 Release Notes](docs/releases/v0.1.0-beta.3.md)
 
 ## Contributing and security
 

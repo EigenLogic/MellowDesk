@@ -7,12 +7,9 @@ struct MellowDeskApp: App {
   @StateObject private var appModel = AppModel.shared
 
   var body: some Scene {
-    MenuBarExtra {
-      MenuBarContentView()
+    Settings {
+      EmptyView()
         .environmentObject(appModel)
-    } label: {
-      Label("小桌伴", systemImage: "leaf.fill")
     }
-    .menuBarExtraStyle(.window)
   }
 }

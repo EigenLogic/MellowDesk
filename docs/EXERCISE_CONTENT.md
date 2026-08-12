@@ -2,7 +2,7 @@
 
 Routine version / 内容版本: `neck-ease-v1.0`
 
-App release / App 版本: `v0.1.0-beta.1`
+App release / App 版本: `v0.1.0-beta.3`
 
 ## Purpose / 用途
 

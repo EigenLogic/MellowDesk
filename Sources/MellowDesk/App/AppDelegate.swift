@@ -6,6 +6,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
 
   func applicationDidFinishLaunching(_ notification: Notification) {
     NSApp.setActivationPolicy(.accessory)
+    ProcessInfo.processInfo.disableAutomaticTermination(
+      "MellowDesk keeps scheduled wellness reminders active."
+    )
+    AppWindowCoordinator.shared.installStatusItem()
     AppModel.shared.start()
     observeScheduleChanges()
   }
@@ -32,7 +36,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       observer.center.removeObserver(observer.token)
     }
     observers.removeAll()
-    AppModel.shared.reminderScheduler.cancelNextReminder()
+    AppModel.shared.reminderScheduler.shutdown()
   }
 
   private func observeScheduleChanges() {
@@ -62,5 +66,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
       }
       observers.append((defaultCenter, token))
     }
+
+    let screenToken = defaultCenter.addObserver(
+      forName: NSApplication.didChangeScreenParametersNotification,
+      object: nil,
+      queue: .main
+    ) { _ in
+      Task { @MainActor in
+        AppWindowCoordinator.shared.applicationDidChangeScreenParameters()
+      }
+    }
+    observers.append((defaultCenter, screenToken))
   }
 }

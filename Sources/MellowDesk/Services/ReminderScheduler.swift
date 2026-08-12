@@ -4,16 +4,109 @@ import MellowDeskCore
 import UserNotifications
 
 enum ReminderNotificationIdentifier {
-  static let request = "cn.eigenlogic.mellowdesk.reminder.next"
+  static let legacyRequest = "cn.eigenlogic.mellowdesk.reminder.next"
+  static let requestPrefix = "cn.eigenlogic.mellowdesk.reminder."
   static let category = "cn.eigenlogic.mellowdesk.reminder.category"
   static let startWorkoutAction = "cn.eigenlogic.mellowdesk.reminder.start-workout"
   static let snoozeTenMinutesAction = "cn.eigenlogic.mellowdesk.reminder.snooze-ten-minutes"
 }
 
+struct ReminderOccurrence: Codable, Equatable, Identifiable, Sendable {
+  let dueAt: Date
+
+  var id: String {
+    String(Int64((dueAt.timeIntervalSince1970 * 1_000).rounded()))
+  }
+
+  var notificationRequestIdentifier: String {
+    ReminderNotificationIdentifier.requestPrefix + id
+  }
+}
+
+@MainActor
+protocol ReminderNotificationClient: AnyObject {
+  func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?)
+  func setNotificationCategories(_ categories: Set<UNNotificationCategory>)
+  func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool
+  func authorizationStatus() async -> UNAuthorizationStatus
+  func add(_ request: UNNotificationRequest) async throws
+  func pendingRequestIdentifiers() async -> Set<String>
+  func removePendingNotificationRequests(withIdentifiers identifiers: [String])
+  func removeDeliveredNotifications(withIdentifiers identifiers: [String])
+}
+
+@MainActor
+private final class SystemReminderNotificationClient: ReminderNotificationClient {
+  private let center: UNUserNotificationCenter
+
+  init(center: UNUserNotificationCenter = .current()) {
+    self.center = center
+  }
+
+  func setDelegate(_ delegate: (any UNUserNotificationCenterDelegate)?) {
+    center.delegate = delegate
+  }
+
+  func setNotificationCategories(_ categories: Set<UNNotificationCategory>) {
+    center.setNotificationCategories(categories)
+  }
+
+  func requestAuthorization(options: UNAuthorizationOptions) async throws -> Bool {
+    try await withCheckedThrowingContinuation { continuation in
+      center.requestAuthorization(options: options) { granted, error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: granted)
+        }
+      }
+    }
+  }
+
+  func authorizationStatus() async -> UNAuthorizationStatus {
+    let settings: UNNotificationSettings = await withCheckedContinuation { continuation in
+      center.getNotificationSettings { settings in
+        continuation.resume(returning: settings)
+      }
+    }
+    return settings.authorizationStatus
+  }
+
+  func add(_ request: UNNotificationRequest) async throws {
+    try await withCheckedThrowingContinuation {
+      (continuation: CheckedContinuation<Void, Error>) in
+      center.add(request) { error in
+        if let error {
+          continuation.resume(throwing: error)
+        } else {
+          continuation.resume(returning: ())
+        }
+      }
+    }
+  }
+
+  func pendingRequestIdentifiers() async -> Set<String> {
+    let requests: [UNNotificationRequest] = await withCheckedContinuation { continuation in
+      center.getPendingNotificationRequests { requests in
+        continuation.resume(returning: requests)
+      }
+    }
+    return Set(requests.map(\.identifier))
+  }
+
+  func removePendingNotificationRequests(withIdentifiers identifiers: [String]) {
+    center.removePendingNotificationRequests(withIdentifiers: identifiers)
+  }
+
+  func removeDeliveredNotifications(withIdentifiers identifiers: [String]) {
+    center.removeDeliveredNotifications(withIdentifiers: identifiers)
+  }
+}
+
 private final class ReminderNotificationRouter: NSObject, UNUserNotificationCenterDelegate {
-  var actionHandler: ((String, @escaping () -> Void) -> Void)?
+  var actionHandler: ((String, String, @escaping () -> Void) -> Void)?
   var presentationHandler:
-    ((UNNotification, @escaping (UNNotificationPresentationOptions) -> Void) -> Void)?
+    ((String, @escaping (UNNotificationPresentationOptions) -> Void) -> Void)?
 
   func userNotificationCenter(
     _ center: UNUserNotificationCenter,
@@ -24,7 +117,7 @@ private final class ReminderNotificationRouter: NSObject, UNUserNotificationCent
       completionHandler([.banner, .list, .sound])
       return
     }
-    presentationHandler(notification, completionHandler)
+    presentationHandler(notification.request.identifier, completionHandler)
   }
 
   func userNotificationCenter(
@@ -36,19 +129,25 @@ private final class ReminderNotificationRouter: NSObject, UNUserNotificationCent
       completionHandler()
       return
     }
-    actionHandler(response.actionIdentifier, completionHandler)
+    actionHandler(
+      response.actionIdentifier,
+      response.notification.request.identifier,
+      completionHandler
+    )
   }
 }
 
 @MainActor
 final class ReminderScheduler: ObservableObject {
   static let nextDueDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.next-due.v1"
+  static let activeReminderDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.active.v1"
 
   @Published private(set) var nextDue: Date?
+  @Published private(set) var activeReminder: ReminderOccurrence?
   @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
   @Published private(set) var lastErrorDescription: String?
 
-  private let notificationCenter: UNUserNotificationCenter
+  private let notificationClient: ReminderNotificationClient
   private let defaults: UserDefaults
   private let calendar: Calendar
   private let router: ReminderNotificationRouter
@@ -57,12 +156,24 @@ final class ReminderScheduler: ObservableObject {
   private var isWorkoutActive = false
   private var scheduleRevision: UInt = 0
 
-  init(
+  convenience init(
     notificationCenter: UNUserNotificationCenter = .current(),
     defaults: UserDefaults = .standard,
     calendar: Calendar = .current
   ) {
-    self.notificationCenter = notificationCenter
+    self.init(
+      notificationClient: SystemReminderNotificationClient(center: notificationCenter),
+      defaults: defaults,
+      calendar: calendar
+    )
+  }
+
+  init(
+    notificationClient: ReminderNotificationClient,
+    defaults: UserDefaults = .standard,
+    calendar: Calendar = .current
+  ) {
+    self.notificationClient = notificationClient
     self.defaults = defaults
     self.calendar = calendar
     router = ReminderNotificationRouter()
@@ -73,36 +184,69 @@ final class ReminderScheduler: ObservableObject {
       nextDue = nil
     }
 
-    router.actionHandler = { [weak self] actionIdentifier, completion in
+    if let data = defaults.data(forKey: Self.activeReminderDefaultsKey),
+      let occurrence = try? JSONDecoder().decode(ReminderOccurrence.self, from: data)
+    {
+      activeReminder = occurrence
+      nextDue = occurrence.dueAt
+    } else {
+      activeReminder = nil
+    }
+
+    router.actionHandler = { [weak self] actionIdentifier, requestIdentifier, completion in
       Task { @MainActor [weak self] in
-        await self?.handleNotificationAction(actionIdentifier)
+        await self?.handleNotificationAction(
+          actionIdentifier,
+          requestIdentifier: requestIdentifier
+        )
         completion()
       }
     }
-    router.presentationHandler = { [weak self] _, completion in
+    router.presentationHandler = { [weak self] requestIdentifier, completion in
       Task { @MainActor [weak self] in
-        if self?.isWorkoutActive == true {
+        if self?.isWorkoutActive == true
+          || self?.activeReminder?.notificationRequestIdentifier == requestIdentifier
+        {
           completion([])
         } else {
           completion([.banner, .list, .sound])
         }
       }
     }
-    notificationCenter.delegate = router
+    notificationClient.setDelegate(router)
     registerNotificationCategory()
   }
 
-  /// Call once during app startup. A future persisted snooze/due date is restored;
-  /// stale dates are replaced from the current schedule.
+  /// Call once during app startup. Future persisted dates are restored, while overdue
+  /// reminders become a durable occurrence that waits for an explicit user action.
   func activate(settings: AppSettings, now: Date = Date()) async {
     activeSettings = settings
+    notificationClient.removePendingNotificationRequests(
+      withIdentifiers: [ReminderNotificationIdentifier.legacyRequest]
+    )
+    notificationClient.removeDeliveredNotifications(
+      withIdentifiers: [ReminderNotificationIdentifier.legacyRequest]
+    )
     _ = await requestAuthorization()
 
-    if let persistedDue = nextDue,
-      persistedDue > now,
-      settings.pauseUntil.map({ persistedDue > $0 }) ?? true
-    {
-      await replacePendingNotification(dueAt: persistedDue, settings: settings, now: now)
+    if activeReminder != nil {
+      if let pauseUntil = settings.pauseUntil, pauseUntil > now {
+        clearActiveReminder()
+        await settingsDidChange(settings, now: now)
+      } else if let activeReminder {
+        setPersistedNextDue(activeReminder.dueAt)
+      }
+      return
+    }
+
+    if let persistedDue = nextDue {
+      if persistedDue <= now {
+        markReminderDue(at: persistedDue)
+      } else if settings.pauseUntil.map({ persistedDue > $0 }) ?? true {
+        await replacePendingNotification(dueAt: persistedDue, settings: settings, now: now)
+      } else {
+        await settingsDidChange(settings, now: now)
+      }
     } else {
       await settingsDidChange(settings, now: now)
     }
@@ -113,15 +257,7 @@ final class ReminderScheduler: ObservableObject {
     registerNotificationCategory()
     let granted: Bool
     do {
-      granted = try await withCheckedThrowingContinuation { continuation in
-        notificationCenter.requestAuthorization(options: [.alert, .sound]) { granted, error in
-          if let error {
-            continuation.resume(throwing: error)
-          } else {
-            continuation.resume(returning: granted)
-          }
-        }
-      }
+      granted = try await notificationClient.requestAuthorization(options: [.alert, .sound])
       lastErrorDescription = nil
     } catch {
       granted = false
@@ -132,30 +268,41 @@ final class ReminderScheduler: ObservableObject {
   }
 
   func refreshAuthorizationStatus() async {
-    let settings: UNNotificationSettings = await withCheckedContinuation { continuation in
-      notificationCenter.getNotificationSettings { settings in
-        continuation.resume(returning: settings)
-      }
-    }
-    authorizationStatus = settings.authorizationStatus
+    authorizationStatus = await notificationClient.authorizationStatus()
   }
 
-  /// Repairs an expired or externally removed notification and keeps the
-  /// recurring cadence alive when the menu-bar app wakes or becomes active.
+  /// Reconciles the durable due date when the app activates, wakes, or the system clock changes.
   func refreshIfNeeded(settings: AppSettings, now: Date = Date()) async {
     activeSettings = settings
     await refreshAuthorizationStatus()
+    await reconcileDue(settings: settings, now: now)
+  }
 
+  /// Shared due transition used by timers, activation, wake, and deterministic tests.
+  func reconcileDue(settings: AppSettings, now: Date = Date()) async {
+    activeSettings = settings
     guard !isWorkoutActive else {
       cancelNextReminder()
       return
     }
 
-    if let nextDue, nextDue > now, await hasPendingReminder() {
-      armRollover(after: nextDue)
+    if let activeReminder {
+      setPersistedNextDue(activeReminder.dueAt)
       return
     }
-    await settingsDidChange(settings, now: now)
+
+    guard let nextDue else {
+      await settingsDidChange(settings, now: now)
+      return
+    }
+
+    if nextDue <= now {
+      markReminderDue(at: nextDue)
+    } else if await hasPendingReminder(dueAt: nextDue) {
+      armRollover(after: nextDue)
+    } else {
+      await replacePendingNotification(dueAt: nextDue, settings: settings, now: now)
+    }
   }
 
   func settingsDidChange(_ settings: AppSettings, now: Date = Date()) async {
@@ -164,6 +311,9 @@ final class ReminderScheduler: ObservableObject {
       cancelNextReminder()
       return
     }
+    // An already-due reminder is a user-visible occurrence, not part of the future
+    // schedule. Ordinary settings edits must not dismiss it behind the user's back.
+    guard activeReminder == nil else { return }
     let due = nextScheduledDate(after: now, settings: settings)
     await replacePendingNotification(dueAt: due, settings: settings, now: now)
   }
@@ -171,6 +321,7 @@ final class ReminderScheduler: ObservableObject {
   func workoutCompleted(at completionDate: Date = Date(), settings: AppSettings) async {
     isWorkoutActive = false
     activeSettings = settings
+    clearActiveReminder()
     let due = nextScheduledDate(after: completionDate, settings: settings)
     await replacePendingNotification(dueAt: due, settings: settings, now: completionDate)
   }
@@ -179,12 +330,15 @@ final class ReminderScheduler: ObservableObject {
   func workoutDismissed(at date: Date = Date(), settings: AppSettings) async {
     isWorkoutActive = false
     activeSettings = settings
+    clearActiveReminder()
     let due = nextScheduledDate(after: date, settings: settings)
     await replacePendingNotification(dueAt: due, settings: settings, now: date)
   }
 
   func snoozeTenMinutes(from date: Date = Date(), settings: AppSettings) async {
     activeSettings = settings
+    guard !isWorkoutActive else { return }
+    clearActiveReminder()
 
     let candidate = date.addingTimeInterval(10 * 60)
     let due: Date?
@@ -201,6 +355,8 @@ final class ReminderScheduler: ObservableObject {
     var pausedSettings = settings
     pausedSettings.pauseUntil = date
     activeSettings = pausedSettings
+    clearActiveReminder()
+    guard !isWorkoutActive else { return }
     let due = nextScheduledDate(after: now, settings: pausedSettings)
     await replacePendingNotification(dueAt: due, settings: pausedSettings, now: now)
   }
@@ -209,16 +365,32 @@ final class ReminderScheduler: ObservableObject {
     scheduleRevision &+= 1
     rolloverTask?.cancel()
     rolloverTask = nil
-    notificationCenter.removePendingNotificationRequests(
-      withIdentifiers: [ReminderNotificationIdentifier.request]
-    )
+    let identifiers = knownRequestIdentifiers()
+    notificationClient.removePendingNotificationRequests(withIdentifiers: identifiers)
+    notificationClient.removeDeliveredNotifications(withIdentifiers: identifiers)
+    setActiveReminder(nil)
     setPersistedNextDue(nil)
     lastErrorDescription = nil
+  }
+
+  /// Stops only process-local work. Durable reminder state and the system fallback
+  /// intentionally survive app restarts and system logout/login cycles.
+  func shutdown() {
+    scheduleRevision &+= 1
+    rolloverTask?.cancel()
+    rolloverTask = nil
   }
 
   func workoutStarted() {
     isWorkoutActive = true
     cancelNextReminder()
+  }
+
+  @discardableResult
+  func workoutStarted(reminderID: ReminderOccurrence.ID) -> Bool {
+    guard activeReminder?.id == reminderID else { return false }
+    workoutStarted()
+    return true
   }
 
   private func registerNotificationCategory() {
@@ -237,10 +409,15 @@ final class ReminderScheduler: ObservableObject {
       intentIdentifiers: [],
       options: []
     )
-    notificationCenter.setNotificationCategories([category])
+    notificationClient.setNotificationCategories([category])
   }
 
-  private func handleNotificationAction(_ actionIdentifier: String) async {
+  func handleNotificationAction(
+    _ actionIdentifier: String,
+    requestIdentifier: String
+  ) async {
+    guard isRelevantReminderRequest(requestIdentifier) else { return }
+
     switch actionIdentifier {
     case ReminderNotificationIdentifier.snoozeTenMinutesAction:
       await snoozeTenMinutes(settings: resolvedSettings())
@@ -253,6 +430,14 @@ final class ReminderScheduler: ObservableObject {
     default:
       break
     }
+  }
+
+  private func isRelevantReminderRequest(_ requestIdentifier: String) -> Bool {
+    if activeReminder?.notificationRequestIdentifier == requestIdentifier { return true }
+    if let nextDue {
+      return ReminderOccurrence(dueAt: nextDue).notificationRequestIdentifier == requestIdentifier
+    }
+    return false
   }
 
   private func resolvedSettings() -> AppSettings {
@@ -285,25 +470,28 @@ final class ReminderScheduler: ObservableObject {
   ) async {
     scheduleRevision &+= 1
     let revision = scheduleRevision
-    notificationCenter.removePendingNotificationRequests(
-      withIdentifiers: [ReminderNotificationIdentifier.request]
+    rolloverTask?.cancel()
+    rolloverTask = nil
+    notificationClient.removePendingNotificationRequests(
+      withIdentifiers: knownRequestIdentifiers()
     )
 
     guard !isWorkoutActive else {
-      rolloverTask?.cancel()
-      rolloverTask = nil
       setPersistedNextDue(nil)
       lastErrorDescription = nil
       return
     }
 
     guard let due else {
-      rolloverTask?.cancel()
-      rolloverTask = nil
       setPersistedNextDue(nil)
       lastErrorDescription = nil
       return
     }
+
+    let occurrence = ReminderOccurrence(dueAt: due)
+    setPersistedNextDue(due)
+    armRollover(after: due)
+    lastErrorDescription = nil
 
     let content = UNMutableNotificationContent()
     content.title = "该活动一下颈肩了"
@@ -314,59 +502,42 @@ final class ReminderScheduler: ObservableObject {
       content.sound = .default
     }
 
+    // The app-owned card appears at `due`. This notification is a short fallback for
+    // sleep, App Nap, or an app process that is not running at that moment.
+    let fallbackDate = due.addingTimeInterval(5)
     let trigger = UNTimeIntervalNotificationTrigger(
-      timeInterval: max(1, due.timeIntervalSince(now)),
+      timeInterval: max(1, fallbackDate.timeIntervalSince(now)),
       repeats: false
     )
     let request = UNNotificationRequest(
-      identifier: ReminderNotificationIdentifier.request,
+      identifier: occurrence.notificationRequestIdentifier,
       content: content,
       trigger: trigger
     )
 
     do {
-      try await withCheckedThrowingContinuation {
-        (continuation: CheckedContinuation<Void, Error>) in
-        notificationCenter.add(request) { error in
-          if let error {
-            continuation.resume(throwing: error)
-          } else {
-            continuation.resume(returning: ())
-          }
-        }
-      }
+      try await notificationClient.add(request)
       guard revision == scheduleRevision, !isWorkoutActive else {
-        if isWorkoutActive {
-          notificationCenter.removePendingNotificationRequests(
-            withIdentifiers: [ReminderNotificationIdentifier.request]
-          )
-          setPersistedNextDue(nil)
-        }
+        notificationClient.removePendingNotificationRequests(
+          withIdentifiers: [occurrence.notificationRequestIdentifier]
+        )
         return
       }
-      setPersistedNextDue(due)
-      armRollover(after: due)
-      lastErrorDescription = nil
     } catch {
-      rolloverTask?.cancel()
-      rolloverTask = nil
-      setPersistedNextDue(nil)
+      // The in-app timer remains armed even if system notifications are unavailable.
+      guard revision == scheduleRevision else { return }
       lastErrorDescription = error.localizedDescription
     }
   }
 
-  private func hasPendingReminder() async -> Bool {
-    let requests: [UNNotificationRequest] = await withCheckedContinuation { continuation in
-      notificationCenter.getPendingNotificationRequests { requests in
-        continuation.resume(returning: requests)
-      }
-    }
-    return requests.contains { $0.identifier == ReminderNotificationIdentifier.request }
+  private func hasPendingReminder(dueAt due: Date) async -> Bool {
+    let identifiers = await notificationClient.pendingRequestIdentifiers()
+    return identifiers.contains(ReminderOccurrence(dueAt: due).notificationRequestIdentifier)
   }
 
   private func armRollover(after due: Date) {
     rolloverTask?.cancel()
-    let delay = max(1, due.timeIntervalSinceNow + 1)
+    let delay = max(0.05, due.timeIntervalSinceNow)
     let maximumDelay = 14.0 * 24 * 60 * 60
     let nanoseconds = UInt64(min(delay, maximumDelay) * 1_000_000_000)
 
@@ -377,9 +548,43 @@ final class ReminderScheduler: ObservableObject {
         return
       }
       guard let self, !Task.isCancelled else { return }
-      let settings = self.resolvedSettings()
-      await self.settingsDidChange(settings, now: Date())
+      await self.reconcileDue(settings: self.resolvedSettings(), now: Date())
     }
+  }
+
+  private func markReminderDue(at due: Date) {
+    scheduleRevision &+= 1
+    rolloverTask?.cancel()
+    rolloverTask = nil
+    let occurrence = ReminderOccurrence(dueAt: due)
+    notificationClient.removePendingNotificationRequests(
+      withIdentifiers: [
+        occurrence.notificationRequestIdentifier,
+        ReminderNotificationIdentifier.legacyRequest,
+      ]
+    )
+    setPersistedNextDue(due)
+    setActiveReminder(occurrence)
+    lastErrorDescription = nil
+  }
+
+  private func clearActiveReminder() {
+    guard let activeReminder else { return }
+    let identifier = activeReminder.notificationRequestIdentifier
+    notificationClient.removePendingNotificationRequests(withIdentifiers: [identifier])
+    notificationClient.removeDeliveredNotifications(withIdentifiers: [identifier])
+    setActiveReminder(nil)
+  }
+
+  private func knownRequestIdentifiers() -> [String] {
+    var identifiers: Set<String> = [ReminderNotificationIdentifier.legacyRequest]
+    if let nextDue {
+      identifiers.insert(ReminderOccurrence(dueAt: nextDue).notificationRequestIdentifier)
+    }
+    if let activeReminder {
+      identifiers.insert(activeReminder.notificationRequestIdentifier)
+    }
+    return Array(identifiers)
   }
 
   private func setPersistedNextDue(_ date: Date?) {
@@ -391,4 +596,12 @@ final class ReminderScheduler: ObservableObject {
     }
   }
 
+  private func setActiveReminder(_ occurrence: ReminderOccurrence?) {
+    activeReminder = occurrence
+    if let occurrence, let data = try? JSONEncoder().encode(occurrence) {
+      defaults.set(data, forKey: Self.activeReminderDefaultsKey)
+    } else {
+      defaults.removeObject(forKey: Self.activeReminderDefaultsKey)
+    }
+  }
 }

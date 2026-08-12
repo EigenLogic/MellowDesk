@@ -29,9 +29,9 @@ The command securely prompts for an app-specific password when `--password` is o
 ```bash
 CODE_SIGN_IDENTITY="Developer ID Application: YOUR_ORGANIZATION (YOUR_TEAM_ID)" \
 NOTARY_PROFILE=mellowdesk-notary \
-RELEASE_VERSION=0.1.0-beta.2 \
+RELEASE_VERSION=0.1.0-beta.3 \
 APP_VERSION=0.1.0 \
-BUILD_NUMBER=2 \
+BUILD_NUMBER=3 \
 ./Scripts/package_release.sh
 ```
 
@@ -40,8 +40,8 @@ The script enforces a Developer ID signature and an arm64 + x86_64 universal exe
 Successful notarization produces:
 
 ```text
-dist/MellowDesk-0.1.0-beta.2-macOS-universal.zip
-dist/MellowDesk-0.1.0-beta.2-macOS-universal.zip.sha256
+dist/MellowDesk-0.1.0-beta.3-macOS-universal.zip
+dist/MellowDesk-0.1.0-beta.3-macOS-universal.zip.sha256
 ```
 
 The script submits the archive, waits for acceptance, staples the ticket to the App, validates the staple, runs Gatekeeper assessment, recreates the archive with the stapled App, and writes the checksum.
@@ -51,7 +51,7 @@ The script submits the archive, waits for acceptance, staples the ticket to the 
 Extract the exact archive into a new temporary directory and verify the distributed copy:
 
 ```bash
-ditto -x -k dist/MellowDesk-0.1.0-beta.2-macOS-universal.zip /tmp/mellowdesk-release-check
+ditto -x -k dist/MellowDesk-0.1.0-beta.3-macOS-universal.zip /tmp/mellowdesk-release-check
 codesign --verify --deep --strict --verbose=2 /tmp/mellowdesk-release-check/MellowDesk.app
 xcrun stapler validate /tmp/mellowdesk-release-check/MellowDesk.app
 spctl --assess --type execute --verbose=4 /tmp/mellowdesk-release-check/MellowDesk.app
@@ -62,6 +62,6 @@ The required Gatekeeper outcome is `accepted`; the executable must list both `ar
 
 ## GitHub Release
 
-Create the prerelease from the tested `main` SHA, attach both files from `dist/`, and use `docs/releases/v0.1.0-beta.2.md` as the release notes. Mark beta versions as prereleases. Do not move or recreate an existing public tag.
+Create the prerelease from the tested `main` SHA, attach both files from `dist/`, and use `docs/releases/v0.1.0-beta.3.md` as the release notes. Mark beta versions as prereleases. Do not move or recreate an existing public tag.
 
 After publishing, download the assets from GitHub and repeat the checksum, Gatekeeper, staple, and launch checks against the downloaded copy.
