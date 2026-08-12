@@ -6,6 +6,14 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 - No unreleased user-visible changes recorded.
 
+## [0.1.0-beta.2] - 2026-08-12
+
+### Fixed
+
+- The menu-bar “next reminder” countdown now updates while the menu stays open instead of freezing at the minute shown when it first appeared.
+
+See the full [v0.1.0-beta.2 release notes](docs/releases/v0.1.0-beta.2.md).
+
 ## [0.1.0-beta.1] - 2026-08-11
 
 ### Added
