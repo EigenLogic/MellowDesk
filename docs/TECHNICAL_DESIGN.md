@@ -99,13 +99,15 @@ ready → calibrating → calibratingDirection → exercising → transitioning 
 
 ## 7. 持久化
 
-历史文件：
+正式 Release 的历史文件：
 
 ```text
 ~/Library/Containers/cn.eigenlogic.mellowdesk/
   Data/Library/Application Support/MellowDesk/workout-history.json
   Data/Library/Application Support/MellowDesk/wellness-history.json
 ```
+
+源码和 CI 开发包使用 `cn.eigenlogic.mellowdesk.dev` 及 Dev 名称，对应独立的沙盒容器。开发数据、摄像头权限等 macOS 隐私授权不会与 `cn.eigenlogic.mellowdesk` 正式 Release 共用；正式发布脚本会显式恢复生产 bundle identifier 和名称。
 
 App Sandbox 下实际根目录由系统重定向。两个文件都使用 `Data.write(options: .atomic)`；若 JSON 损坏，原文件先移动为唯一的 `*.corrupt-*` 备份，随后恢复空 archive。
 
@@ -136,6 +138,8 @@ ActivityCompletion
 - `com.apple.security.device.camera = true`。
 - 不声明麦克风或网络 entitlement。
 - `PrivacyInfo.xcprivacy` 声明 UserDefaults required-reason API；无跟踪、无收集数据类型。
+- 源码和 CI 开发包使用 `cn.eigenlogic.mellowdesk.dev`；Developer ID 签名并公证的正式 Release 使用 `cn.eigenlogic.mellowdesk`。
+- 摄像头授权状态、请求和结果写入 macOS 统一日志，仅用于诊断权限流程，不记录画面或头部姿态数据。
 
 ## 9. 测试
 

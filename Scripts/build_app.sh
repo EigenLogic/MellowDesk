@@ -11,6 +11,19 @@ CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:--}"
 UNIVERSAL_BUILD="${UNIVERSAL_BUILD:-0}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
 BUILD_NUMBER="${BUILD_NUMBER:-3}"
+BUNDLE_IDENTIFIER="${BUNDLE_IDENTIFIER:-cn.eigenlogic.mellowdesk.dev}"
+APP_DISPLAY_NAME="${APP_DISPLAY_NAME:-小桌伴 Dev}"
+BUNDLE_NAME="${BUNDLE_NAME:-MellowDesk Dev}"
+
+if [[ -z "${BUNDLE_IDENTIFIER}" || -z "${APP_DISPLAY_NAME}" || -z "${BUNDLE_NAME}" ]]; then
+    print -u2 "App 身份配置不能为空。"
+    exit 1
+fi
+
+if [[ "${BUNDLE_IDENTIFIER}" == "cn.eigenlogic.mellowdesk" && "${CODE_SIGN_IDENTITY}" == "-" ]]; then
+    print -u2 "拒绝使用 ad-hoc 签名构建生产 bundle identifier。"
+    exit 1
+fi
 
 if [[ "${APP_DIR}" != "${PROJECT_DIR}/build/MellowDesk.app" ]]; then
     print -u2 "拒绝清理未验证的构建目录：${APP_DIR}"
@@ -41,6 +54,9 @@ fi
 
 /usr/libexec/PlistBuddy -c "Set :CFBundleShortVersionString ${APP_VERSION}" "${CONTENTS_DIR}/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :CFBundleVersion ${BUILD_NUMBER}" "${CONTENTS_DIR}/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleIdentifier ${BUNDLE_IDENTIFIER}" "${CONTENTS_DIR}/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleDisplayName ${APP_DISPLAY_NAME}" "${CONTENTS_DIR}/Info.plist"
+/usr/libexec/PlistBuddy -c "Set :CFBundleName ${BUNDLE_NAME}" "${CONTENTS_DIR}/Info.plist"
 
 CODESIGN_ARGS=(--force --sign "${CODE_SIGN_IDENTITY}")
 if [[ "${CODE_SIGN_IDENTITY}" != "-" ]]; then

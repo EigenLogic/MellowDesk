@@ -61,7 +61,7 @@ EigenLogic Developer ID 签名、启用 Hardened Runtime，并已通过 Apple �
 
 ## 从源码构建
 
-本地源码构建使用 ad-hoc 签名，与 GitHub Release 中的官方公证分发包相互独立。
+本地源码构建使用 ad-hoc 签名，与 GitHub Release 中的官方公证分发包相互独立。源码和 CI 开发包使用 `cn.eigenlogic.mellowdesk.dev` bundle identifier 和 Dev 名称；正式 Release 继续使用 `cn.eigenlogic.mellowdesk` 和小桌伴正式名称。这样开发版的本地数据和 macOS 隐私权限不会与正式签名版本混用。
 
 构建并打开 App：
 
@@ -75,7 +75,7 @@ EigenLogic Developer ID 签名、启用 Hardened Runtime，并已通过 Apple �
 ./Scripts/check.sh
 ```
 
-产物位于 `build/MellowDesk.app`，bundle identifier 为 `cn.eigenlogic.mellowdesk`。
+开发产物位于 `build/MellowDesk.app`，bundle identifier 为 `cn.eigenlogic.mellowdesk.dev`，bundle name 为“MellowDesk Dev”，显示名称为“小桌伴 Dev”。正式发布脚本会明确恢复生产 bundle identifier 和名称。
 
 ## 首次使用
 
