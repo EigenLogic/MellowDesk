@@ -15,6 +15,11 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 - New installations start with a balanced 50-minute rhythm. Only one activity is due at a time; snoozing preserves that activity, while completion advances the rotation.
 - Existing beta reminder state and neck-workout history remain readable.
 
+### Fixed
+
+- Source and CI development apps now use the distinct `cn.eigenlogic.mellowdesk.dev` identity and Dev name, isolating their local data and macOS privacy permissions from the Developer ID signed release. Official releases continue to use `cn.eigenlogic.mellowdesk`.
+- Camera authorization state, request, and outcome are now available in macOS unified logs, making failed permission flows diagnosable without recording camera frames or head-pose data.
+
 ## [0.1.0-beta.3] - 2026-08-12
 
 ### Added

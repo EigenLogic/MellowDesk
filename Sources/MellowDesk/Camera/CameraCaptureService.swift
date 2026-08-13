@@ -2,6 +2,7 @@ import AVFoundation
 import Combine
 import CoreVideo
 import MellowDeskCore
+import OSLog
 
 /// Owns the camera for the duration of one exercise session and publishes raw
 /// head-pose samples on the main queue.
@@ -31,6 +32,10 @@ public final class CameraCaptureService: NSObject, ObservableObject {
   private let videoOutputQueue = DispatchQueue(
     label: "cn.eigenlogic.mellowdesk.camera.video-output",
     qos: .userInitiated
+  )
+  private let logger = Logger(
+    subsystem: Bundle.main.bundleIdentifier ?? "cn.eigenlogic.mellowdesk",
+    category: "camera-authorization"
   )
   private let captureQueueKey = DispatchSpecificKey<UInt8>()
   private let sampleStateLock = NSLock()
@@ -122,6 +127,9 @@ public final class CameraCaptureService: NSObject, ObservableObject {
   private func startAccordingToCurrentAuthorization() {
     let status = AVCaptureDevice.authorizationStatus(for: .video)
     let state = CameraAuthorizationState(status)
+    logger.notice(
+      "Camera authorization evaluated; status=\(self.authorizationStatusName(status), privacy: .public); bundleID=\(self.bundleIdentifier, privacy: .public)"
+    )
     publishOnMain { $0.authorizationState = state }
 
     switch status {
@@ -129,8 +137,14 @@ public final class CameraCaptureService: NSObject, ObservableObject {
       configureAndStartIfNeeded()
 
     case .notDetermined:
+      logger.notice(
+        "Camera authorization request started; bundleID=\(self.bundleIdentifier, privacy: .public)"
+      )
       AVCaptureDevice.requestAccess(for: .video) { [weak self] granted in
         guard let self else { return }
+        self.logger.notice(
+          "Camera authorization request completed; granted=\(granted, privacy: .public); bundleID=\(self.bundleIdentifier, privacy: .public)"
+        )
         self.captureQueue.async {
           let updatedState: CameraAuthorizationState = granted ? .authorized : .denied
           self.publishOnMain { $0.authorizationState = updatedState }
@@ -352,6 +366,9 @@ public final class CameraCaptureService: NSObject, ObservableObject {
 
   // Must run on captureQueue.
   private func fail(_ error: CameraCaptureError) {
+    logger.error(
+      "Camera capture failed; reason=\(self.diagnosticName(for: error), privacy: .public); bundleID=\(self.bundleIdentifier, privacy: .public)"
+    )
     wantsToRun = false
     setAcceptsSamples(false)
     if captureSession.isRunning {
@@ -375,6 +392,52 @@ public final class CameraCaptureService: NSObject, ObservableObject {
         guard let self else { return }
         update(self)
       }
+    }
+  }
+
+  private var bundleIdentifier: String {
+    Bundle.main.bundleIdentifier ?? "unknown"
+  }
+
+  private func authorizationStatusName(_ status: AVAuthorizationStatus) -> String {
+    switch status {
+    case .notDetermined:
+      return "notDetermined"
+    case .restricted:
+      return "restricted"
+    case .denied:
+      return "denied"
+    case .authorized:
+      return "authorized"
+    @unknown default:
+      return "unknown(\(status.rawValue))"
+    }
+  }
+
+  private func diagnosticName(for error: CameraCaptureError) -> String {
+    switch error {
+    case .permissionDenied:
+      return "permissionDenied"
+    case .permissionRestricted:
+      return "permissionRestricted"
+    case .noCameraAvailable:
+      return "noCameraAvailable"
+    case .cannotCreateInput:
+      return "cannotCreateInput"
+    case .cannotAddInput:
+      return "cannotAddInput"
+    case .cannotAddOutput:
+      return "cannotAddOutput"
+    case .configurationFailed:
+      return "configurationFailed"
+    case .sessionInterrupted:
+      return "sessionInterrupted"
+    case .sessionRuntimeFailure:
+      return "sessionRuntimeFailure"
+    case .visionProcessingFailed:
+      return "visionProcessingFailed"
+    case .startFailed:
+      return "startFailed"
     }
   }
 

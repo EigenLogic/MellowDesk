@@ -62,7 +62,7 @@ uses Hardened Runtime, and is notarized by Apple.
 
 ## Build from source
 
-Local source builds use ad-hoc signing and are separate from the notarized GitHub Release.
+Local source builds use ad-hoc signing and are separate from the notarized GitHub Release. Source and CI development apps use the `cn.eigenlogic.mellowdesk.dev` bundle identifier and a Dev display name; official releases keep `cn.eigenlogic.mellowdesk` and the MellowDesk name. This keeps development data and macOS privacy permissions isolated from the signed release.
 
 Build and open the app:
 
@@ -76,7 +76,7 @@ Run all automated checks and assemble the app:
 ./Scripts/check.sh
 ```
 
-The app is assembled at `build/MellowDesk.app` with bundle identifier `cn.eigenlogic.mellowdesk`.
+The development app is assembled at `build/MellowDesk.app` with bundle identifier `cn.eigenlogic.mellowdesk.dev`, bundle name **MellowDesk Dev**, and display name **小桌伴 Dev**. Release packaging explicitly restores the production identifier and names.
 
 ## First run
 

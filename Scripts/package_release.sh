@@ -32,7 +32,26 @@ CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY}" \
 UNIVERSAL_BUILD=1 \
 APP_VERSION="${APP_VERSION}" \
 BUILD_NUMBER="${BUILD_NUMBER}" \
+BUNDLE_IDENTIFIER="cn.eigenlogic.mellowdesk" \
+APP_DISPLAY_NAME="小桌伴" \
+BUNDLE_NAME="MellowDesk" \
 "${SCRIPT_DIR}/build_app.sh"
+
+APP_INFO_PLIST="${APP_DIR}/Contents/Info.plist"
+assert_plist_value() {
+    local key="$1"
+    local expected="$2"
+    local actual
+    actual="$(/usr/libexec/PlistBuddy -c "Print :${key}" "${APP_INFO_PLIST}")"
+    if [[ "${actual}" != "${expected}" ]]; then
+        print -u2 "发布包 ${key} 错误：期望 ${expected}，实际 ${actual}。"
+        exit 1
+    fi
+}
+
+assert_plist_value CFBundleIdentifier "cn.eigenlogic.mellowdesk"
+assert_plist_value CFBundleDisplayName "小桌伴"
+assert_plist_value CFBundleName "MellowDesk"
 
 /usr/bin/codesign --verify --deep --strict --verbose=2 "${APP_DIR}"
 SIGNATURE_DETAILS="$(/usr/bin/codesign -d --verbose=4 "${APP_DIR}" 2>&1)"
