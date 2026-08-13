@@ -13,6 +13,16 @@ enum ReminderNotificationIdentifier {
 
 struct ReminderOccurrence: Codable, Equatable, Identifiable, Sendable {
   let dueAt: Date
+  let slot: Int
+
+  init(dueAt: Date, slot: Int = WellnessPlan.cycleLength - 1) {
+    self.dueAt = dueAt
+    self.slot = WellnessPlan.normalizedSlot(slot)
+  }
+
+  var activity: WellnessActivityKind {
+    WellnessPlan.activity(for: slot)
+  }
 
   var id: String {
     String(Int64((dueAt.timeIntervalSince1970 * 1_000).rounded()))
@@ -20,6 +30,21 @@ struct ReminderOccurrence: Codable, Equatable, Identifiable, Sendable {
 
   var notificationRequestIdentifier: String {
     ReminderNotificationIdentifier.requestPrefix + id
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case dueAt
+    case slot
+  }
+
+  init(from decoder: Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    dueAt = try container.decode(Date.self, forKey: .dueAt)
+    // beta.3 persisted only `dueAt`, and every such occurrence was a neck workout.
+    slot = WellnessPlan.normalizedSlot(
+      try container.decodeIfPresent(Int.self, forKey: .slot)
+        ?? WellnessPlan.cycleLength - 1
+    )
   }
 }
 
@@ -141,11 +166,17 @@ private final class ReminderNotificationRouter: NSObject, UNUserNotificationCent
 final class ReminderScheduler: ObservableObject {
   static let nextDueDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.next-due.v1"
   static let activeReminderDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.active.v1"
+  static let nextSlotDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.next-slot.v1"
+  static let nextSlotDueDefaultsKey = "cn.eigenlogic.mellowdesk.reminder.next-slot-due.v1"
 
   @Published private(set) var nextDue: Date?
   @Published private(set) var activeReminder: ReminderOccurrence?
   @Published private(set) var authorizationStatus: UNAuthorizationStatus = .notDetermined
   @Published private(set) var lastErrorDescription: String?
+
+  var nextActivity: WellnessActivityKind {
+    activeReminder?.activity ?? WellnessPlan.activity(for: scheduledSlot)
+  }
 
   private let notificationClient: ReminderNotificationClient
   private let defaults: UserDefaults
@@ -153,7 +184,9 @@ final class ReminderScheduler: ObservableObject {
   private let router: ReminderNotificationRouter
   private var activeSettings: AppSettings?
   private var rolloverTask: Task<Void, Never>?
-  private var isWorkoutActive = false
+  private var isActivityActive = false
+  private var inProgressReminderSlot: Int?
+  private var scheduledSlot: Int
   private var scheduleRevision: UInt = 0
 
   convenience init(
@@ -178,10 +211,28 @@ final class ReminderScheduler: ObservableObject {
     self.calendar = calendar
     router = ReminderNotificationRouter()
 
+    let restoredNextDue: Date?
     if let timestamp = defaults.object(forKey: Self.nextDueDefaultsKey) as? Double {
+      restoredNextDue = Date(timeIntervalSince1970: timestamp)
       nextDue = Date(timeIntervalSince1970: timestamp)
     } else {
+      restoredNextDue = nil
       nextDue = nil
+    }
+
+    let persistedSlot = defaults.object(forKey: Self.nextSlotDefaultsKey) as? Int
+    let persistedSlotDue = defaults.object(forKey: Self.nextSlotDueDefaultsKey) as? Double
+    if let persistedSlot,
+      restoredNextDue == nil
+        || persistedSlotDue.map({
+          abs($0 - (restoredNextDue?.timeIntervalSince1970 ?? $0)) < 0.001
+        }) == true
+    {
+      scheduledSlot = WellnessPlan.normalizedSlot(persistedSlot)
+    } else {
+      // A future beta.3 reminder was always a neck workout. A genuinely new
+      // installation starts with the most useful whole-body break instead.
+      scheduledSlot = restoredNextDue == nil ? 0 : WellnessPlan.cycleLength - 1
     }
 
     if let data = defaults.data(forKey: Self.activeReminderDefaultsKey),
@@ -189,6 +240,7 @@ final class ReminderScheduler: ObservableObject {
     {
       activeReminder = occurrence
       nextDue = occurrence.dueAt
+      scheduledSlot = occurrence.slot
     } else {
       activeReminder = nil
     }
@@ -204,7 +256,7 @@ final class ReminderScheduler: ObservableObject {
     }
     router.presentationHandler = { [weak self] requestIdentifier, completion in
       Task { @MainActor [weak self] in
-        if self?.isWorkoutActive == true
+        if self?.isActivityActive == true
           || self?.activeReminder?.notificationRequestIdentifier == requestIdentifier
         {
           completion([])
@@ -234,6 +286,7 @@ final class ReminderScheduler: ObservableObject {
         clearActiveReminder()
         await settingsDidChange(settings, now: now)
       } else if let activeReminder {
+        setScheduledSlot(activeReminder.slot)
         setPersistedNextDue(activeReminder.dueAt)
       }
       return
@@ -281,7 +334,7 @@ final class ReminderScheduler: ObservableObject {
   /// Shared due transition used by timers, activation, wake, and deterministic tests.
   func reconcileDue(settings: AppSettings, now: Date = Date()) async {
     activeSettings = settings
-    guard !isWorkoutActive else {
+    guard !isActivityActive else {
       cancelNextReminder()
       return
     }
@@ -307,7 +360,7 @@ final class ReminderScheduler: ObservableObject {
 
   func settingsDidChange(_ settings: AppSettings, now: Date = Date()) async {
     activeSettings = settings
-    guard !isWorkoutActive else {
+    guard !isActivityActive else {
       cancelNextReminder()
       return
     }
@@ -318,26 +371,75 @@ final class ReminderScheduler: ObservableObject {
     await replacePendingNotification(dueAt: due, settings: settings, now: now)
   }
 
-  func workoutCompleted(at completionDate: Date = Date(), settings: AppSettings) async {
-    isWorkoutActive = false
+  /// Synchronously persists the completed rotation before any asynchronous system
+  /// notification work. Callers can safely close their window or terminate afterward.
+  @discardableResult
+  func recordActivityCompletion(
+    at completionDate: Date = Date(),
+    settings: AppSettings
+  ) -> Date? {
+    isActivityActive = false
     activeSettings = settings
     clearActiveReminder()
+    if let completedSlot = inProgressReminderSlot {
+      setScheduledSlot(completedSlot + 1)
+    }
+    inProgressReminderSlot = nil
     let due = nextScheduledDate(after: completionDate, settings: settings)
+    setPersistedNextDue(due)
+    if let due {
+      armRollover(after: due)
+    }
+    return due
+  }
+
+  func activityCompleted(at completionDate: Date = Date(), settings: AppSettings) async {
+    let due = recordActivityCompletion(at: completionDate, settings: settings)
     await replacePendingNotification(dueAt: due, settings: settings, now: completionDate)
   }
 
-  /// Re-enters the normal cadence when a started workout is closed without a saved session.
-  func workoutDismissed(at date: Date = Date(), settings: AppSettings) async {
-    isWorkoutActive = false
+  func workoutCompleted(at completionDate: Date = Date(), settings: AppSettings) async {
+    await activityCompleted(at: completionDate, settings: settings)
+  }
+
+  /// Re-enters the normal cadence without advancing the rotation when an activity
+  /// is closed before it is recorded as complete.
+  func activityDismissed(
+    at date: Date = Date(),
+    settings: AppSettings,
+    snoozeMinutes: Int? = nil
+  ) async {
+    isActivityActive = false
     activeSettings = settings
     clearActiveReminder()
-    let due = nextScheduledDate(after: date, settings: settings)
+    if let interruptedSlot = inProgressReminderSlot {
+      setScheduledSlot(interruptedSlot)
+    }
+    inProgressReminderSlot = nil
+    let due: Date?
+    if let snoozeMinutes {
+      let candidate = date.addingTimeInterval(TimeInterval(max(1, snoozeMinutes) * 60))
+      if let pauseUntil = settings.pauseUntil, pauseUntil > candidate {
+        due = settings.reminderSchedule.nextReminder(after: pauseUntil, calendar: calendar)
+      } else {
+        due = settings.reminderSchedule.adjustedToWorkWindow(candidate, calendar: calendar)
+      }
+    } else {
+      due = nextScheduledDate(after: date, settings: settings)
+    }
     await replacePendingNotification(dueAt: due, settings: settings, now: date)
+  }
+
+  func workoutDismissed(at date: Date = Date(), settings: AppSettings) async {
+    await activityDismissed(at: date, settings: settings)
   }
 
   func snoozeTenMinutes(from date: Date = Date(), settings: AppSettings) async {
     activeSettings = settings
-    guard !isWorkoutActive else { return }
+    guard !isActivityActive else { return }
+    if let activeReminder {
+      setScheduledSlot(activeReminder.slot)
+    }
     clearActiveReminder()
 
     let candidate = date.addingTimeInterval(10 * 60)
@@ -355,8 +457,11 @@ final class ReminderScheduler: ObservableObject {
     var pausedSettings = settings
     pausedSettings.pauseUntil = date
     activeSettings = pausedSettings
+    if let activeReminder {
+      setScheduledSlot(activeReminder.slot)
+    }
     clearActiveReminder()
-    guard !isWorkoutActive else { return }
+    guard !isActivityActive else { return }
     let due = nextScheduledDate(after: now, settings: pausedSettings)
     await replacePendingNotification(dueAt: due, settings: pausedSettings, now: now)
   }
@@ -381,22 +486,33 @@ final class ReminderScheduler: ObservableObject {
     rolloverTask = nil
   }
 
-  func workoutStarted() {
-    isWorkoutActive = true
+  func activityStarted() {
+    isActivityActive = true
     cancelNextReminder()
   }
 
   @discardableResult
-  func workoutStarted(reminderID: ReminderOccurrence.ID) -> Bool {
-    guard activeReminder?.id == reminderID else { return false }
-    workoutStarted()
+  func activityStarted(reminderID: ReminderOccurrence.ID) -> Bool {
+    guard let occurrence = activeReminder, occurrence.id == reminderID else { return false }
+    inProgressReminderSlot = occurrence.slot
+    setScheduledSlot(occurrence.slot)
+    activityStarted()
     return true
+  }
+
+  func workoutStarted() {
+    activityStarted()
+  }
+
+  @discardableResult
+  func workoutStarted(reminderID: ReminderOccurrence.ID) -> Bool {
+    activityStarted(reminderID: reminderID)
   }
 
   private func registerNotificationCategory() {
     let start = UNNotificationAction(
       identifier: ReminderNotificationIdentifier.startWorkoutAction,
-      title: "开始训练",
+      title: "现在开始",
       options: [.foreground]
     )
     let snooze = UNNotificationAction(
@@ -424,8 +540,14 @@ final class ReminderScheduler: ObservableObject {
 
     case ReminderNotificationIdentifier.startWorkoutAction,
       UNNotificationDefaultActionIdentifier:
-      workoutStarted()
-      NotificationCenter.default.post(name: .mellowDeskStartWorkoutRequested, object: nil)
+      if activeReminder == nil, let nextDue {
+        markReminderDue(at: nextDue)
+      }
+      guard let activeReminder else { return }
+      NotificationCenter.default.post(
+        name: .mellowDeskStartActivityRequested,
+        object: activeReminder.id
+      )
 
     default:
       break
@@ -476,7 +598,7 @@ final class ReminderScheduler: ObservableObject {
       withIdentifiers: knownRequestIdentifiers()
     )
 
-    guard !isWorkoutActive else {
+    guard !isActivityActive else {
       setPersistedNextDue(nil)
       lastErrorDescription = nil
       return
@@ -488,14 +610,24 @@ final class ReminderScheduler: ObservableObject {
       return
     }
 
-    let occurrence = ReminderOccurrence(dueAt: due)
+    let occurrence = ReminderOccurrence(dueAt: due, slot: scheduledSlot)
+    setScheduledSlot(occurrence.slot)
     setPersistedNextDue(due)
     armRollover(after: due)
     lastErrorDescription = nil
 
     let content = UNMutableNotificationContent()
-    content.title = "该活动一下颈肩了"
-    content.body = "用 2–3 分钟完成一次颈肩微运动。"
+    switch occurrence.activity {
+    case .stand:
+      content.title = "起来走两步吧"
+      content.body = "离开椅子活动 2 分钟，轻松走动就算完成。"
+    case .water:
+      content.title = "要不要喝几口水？"
+      content.body = "起身接点水，顺便活动 2 分钟；按自己的节奏喝就好。"
+    case .neck:
+      content.title = "给颈肩 3 分钟"
+      content.body = "跟着动画缓慢活动，只做到舒适范围。"
+    }
     content.categoryIdentifier = ReminderNotificationIdentifier.category
     content.threadIdentifier = "cn.eigenlogic.mellowdesk.reminders"
     if settings.soundEnabled {
@@ -517,8 +649,8 @@ final class ReminderScheduler: ObservableObject {
 
     do {
       try await notificationClient.add(request)
-      guard revision == scheduleRevision, !isWorkoutActive else {
-        if !isWorkoutActive,
+      guard revision == scheduleRevision, !isActivityActive else {
+        if !isActivityActive,
           activeReminder == nil,
           nextDue == due
         {
@@ -566,7 +698,7 @@ final class ReminderScheduler: ObservableObject {
     scheduleRevision &+= 1
     rolloverTask?.cancel()
     rolloverTask = nil
-    let occurrence = ReminderOccurrence(dueAt: due)
+    let occurrence = ReminderOccurrence(dueAt: due, slot: scheduledSlot)
     notificationClient.removePendingNotificationRequests(
       withIdentifiers: [
         occurrence.notificationRequestIdentifier,
@@ -601,17 +733,25 @@ final class ReminderScheduler: ObservableObject {
     nextDue = date
     if let date {
       defaults.set(date.timeIntervalSince1970, forKey: Self.nextDueDefaultsKey)
+      defaults.set(date.timeIntervalSince1970, forKey: Self.nextSlotDueDefaultsKey)
     } else {
       defaults.removeObject(forKey: Self.nextDueDefaultsKey)
+      defaults.removeObject(forKey: Self.nextSlotDueDefaultsKey)
     }
   }
 
   private func setActiveReminder(_ occurrence: ReminderOccurrence?) {
     activeReminder = occurrence
     if let occurrence, let data = try? JSONEncoder().encode(occurrence) {
+      setScheduledSlot(occurrence.slot)
       defaults.set(data, forKey: Self.activeReminderDefaultsKey)
     } else {
       defaults.removeObject(forKey: Self.activeReminderDefaultsKey)
     }
+  }
+
+  private func setScheduledSlot(_ slot: Int) {
+    scheduledSlot = WellnessPlan.normalizedSlot(slot)
+    defaults.set(scheduledSlot, forKey: Self.nextSlotDefaultsKey)
   }
 }

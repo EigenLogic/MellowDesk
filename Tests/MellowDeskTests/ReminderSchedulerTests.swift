@@ -102,6 +102,299 @@ final class ReminderSchedulerTests: XCTestCase {
     XCTAssertEqual(restoredScheduler.nextDue, due)
   }
 
+  func testLegacyDueOnlyActiveOccurrenceDecodesAsNeckSlot() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(-30)
+    let legacyData = try JSONEncoder().encode(["dueAt": due])
+    context.defaults.set(legacyData, forKey: ReminderScheduler.activeReminderDefaultsKey)
+    let scheduler = context.makeScheduler()
+
+    await scheduler.activate(settings: settings, now: now)
+
+    let occurrence = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(occurrence.dueAt, due)
+    XCTAssertEqual(occurrence.slot, 2)
+    XCTAssertEqual(occurrence.activity, .neck)
+    XCTAssertEqual(scheduler.nextActivity, .neck)
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      2
+    )
+  }
+
+  func testBrandNewScheduleStartsWithStandAndUsesStandNotificationCopy() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let scheduler = context.makeScheduler()
+
+    await scheduler.settingsDidChange(settings, now: now)
+
+    let due = now.addingTimeInterval(50 * 60)
+    let occurrence = ReminderOccurrence(dueAt: due, slot: 0)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertEqual(scheduler.nextDue, due)
+    XCTAssertEqual(scheduler.nextActivity, .stand)
+    XCTAssertEqual(request.content.title, "起来走两步吧")
+    XCTAssertEqual(request.content.body, "离开椅子活动 2 分钟，轻松走动就算完成。")
+  }
+
+  func testSnoozePreservesCurrentActivitySlot() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(-30)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(1, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+    await scheduler.activate(settings: settings, now: now)
+    XCTAssertEqual(scheduler.activeReminder?.activity, .water)
+
+    await scheduler.snoozeTenMinutes(from: now, settings: settings)
+
+    let snoozedDue = now.addingTimeInterval(10 * 60)
+    let occurrence = ReminderOccurrence(dueAt: snoozedDue, slot: 1)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertNil(scheduler.activeReminder)
+    XCTAssertEqual(scheduler.nextDue, snoozedDue)
+    XCTAssertEqual(scheduler.nextActivity, .water)
+    XCTAssertEqual(request.content.title, "要不要喝几口水？")
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      1
+    )
+  }
+
+  func testStandCompletionAdvancesToWaterAndPersistsAcrossRecreation() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let scheduler = context.makeScheduler()
+    await scheduler.settingsDidChange(settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let standReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(standReminder.activity, .stand)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: standReminder.id))
+
+    let completedAt = due.addingTimeInterval(2 * 60)
+    await scheduler.activityCompleted(at: completedAt, settings: settings)
+
+    let nextDue = completedAt.addingTimeInterval(50 * 60)
+    XCTAssertEqual(scheduler.nextDue, nextDue)
+    XCTAssertEqual(scheduler.nextActivity, .water)
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      1
+    )
+
+    let restoredScheduler = context.makeScheduler()
+    await restoredScheduler.activate(settings: settings, now: completedAt)
+    XCTAssertEqual(restoredScheduler.nextDue, nextDue)
+    XCTAssertEqual(restoredScheduler.nextActivity, .water)
+    let occurrence = ReminderOccurrence(dueAt: nextDue, slot: 1)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertEqual(request.content.title, "要不要喝几口水？")
+  }
+
+  func testDismissedQuickActivitySnoozesTenMinutesWithoutAdvancingSlot() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let scheduler = context.makeScheduler()
+    await scheduler.settingsDidChange(settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let standReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(standReminder.activity, .stand)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: standReminder.id))
+
+    await scheduler.activityDismissed(
+      at: due,
+      settings: settings,
+      snoozeMinutes: 10
+    )
+
+    let snoozedDue = due.addingTimeInterval(10 * 60)
+    XCTAssertEqual(scheduler.nextDue, snoozedDue)
+    XCTAssertEqual(scheduler.nextActivity, .stand)
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      0
+    )
+    let occurrence = ReminderOccurrence(dueAt: snoozedDue, slot: 0)
+    XCTAssertNotNil(context.client.requests[occurrence.notificationRequestIdentifier])
+  }
+
+  func testDismissedQuickActivitySchedulesAfterAnActivePause() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let scheduler = context.makeScheduler()
+    await scheduler.settingsDidChange(settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let standReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(standReminder.activity, .stand)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: standReminder.id))
+
+    let pauseUntil = date(2030, 8, 13, 0, 0)
+    var pausedSettings = settings
+    pausedSettings.pauseUntil = pauseUntil
+    await scheduler.pause(until: pauseUntil, settings: pausedSettings, now: due)
+    XCTAssertNil(scheduler.nextDue)
+
+    let dismissedAt = due.addingTimeInterval(60)
+    await scheduler.activityDismissed(
+      at: dismissedAt,
+      settings: pausedSettings,
+      snoozeMinutes: 10
+    )
+
+    let expectedDue = pausedSettings.reminderSchedule.nextReminder(
+      after: pauseUntil,
+      calendar: utcCalendar
+    )
+    let unwrappedExpectedDue = try XCTUnwrap(expectedDue)
+    XCTAssertEqual(scheduler.nextDue, unwrappedExpectedDue)
+    XCTAssertGreaterThan(scheduler.nextDue ?? .distantPast, pauseUntil)
+    XCTAssertEqual(scheduler.nextActivity, .stand)
+    let occurrence = ReminderOccurrence(dueAt: unwrappedExpectedDue, slot: 0)
+    XCTAssertNotNil(context.client.requests[occurrence.notificationRequestIdentifier])
+  }
+
+  func testManualActivityCompletionDoesNotAdvanceActiveStandReminder() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(-30)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(0, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+    await scheduler.activate(settings: settings, now: now)
+    XCTAssertEqual(try XCTUnwrap(scheduler.activeReminder).activity, .stand)
+
+    scheduler.activityStarted()
+    let completedAt = now.addingTimeInterval(2 * 60)
+    let nextDue = scheduler.recordActivityCompletion(at: completedAt, settings: settings)
+
+    let expectedDue = completedAt.addingTimeInterval(50 * 60)
+    XCTAssertEqual(nextDue, expectedDue)
+    XCTAssertEqual(scheduler.nextDue, expectedDue)
+    XCTAssertEqual(scheduler.nextActivity, .stand)
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      0
+    )
+  }
+
+  func testRecordedCompletionIsImmediatelyRestoredAsNextSlotWithoutAwaiting() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let scheduler = context.makeScheduler()
+    await scheduler.settingsDidChange(settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let standReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(standReminder.activity, .stand)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: standReminder.id))
+
+    let completedAt = due.addingTimeInterval(2 * 60)
+    let persistedDue = scheduler.recordActivityCompletion(at: completedAt, settings: settings)
+    let restoredScheduler = context.makeScheduler()
+
+    let expectedDue = completedAt.addingTimeInterval(50 * 60)
+    XCTAssertEqual(persistedDue, expectedDue)
+    XCTAssertEqual(restoredScheduler.nextDue, expectedDue)
+    XCTAssertEqual(restoredScheduler.nextActivity, .water)
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      1
+    )
+    XCTAssertEqual(
+      context.defaults.double(forKey: ReminderScheduler.nextSlotDueDefaultsKey),
+      expectedDue.timeIntervalSince1970,
+      accuracy: 0.001
+    )
+  }
+
+  func testMismatchedSlotDueMigratesPersistedScheduleAsLegacyNeckReminder() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let staleSlotDue = now.addingTimeInterval(40 * 60)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(1, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      staleSlotDue.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+
+    XCTAssertEqual(scheduler.nextDue, due)
+    XCTAssertEqual(scheduler.nextActivity, .neck)
+    await scheduler.activate(settings: settings, now: now)
+
+    let occurrence = ReminderOccurrence(dueAt: due, slot: 2)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertEqual(request.content.title, "给颈肩 3 分钟")
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      2
+    )
+    XCTAssertEqual(
+      context.defaults.double(forKey: ReminderScheduler.nextSlotDueDefaultsKey),
+      due.timeIntervalSince1970,
+      accuracy: 0.001
+    )
+  }
+
+  func testSystemPrimaryActionPostsGenericRequestWithoutPreclearingActiveReminder() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(-30)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(0, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+    await scheduler.activate(settings: settings, now: now)
+    let occurrence = try XCTUnwrap(scheduler.activeReminder)
+    var requestedReminderID: ReminderOccurrence.ID?
+    let token = NotificationCenter.default.addObserver(
+      forName: .mellowDeskStartActivityRequested,
+      object: nil,
+      queue: nil
+    ) { notification in
+      requestedReminderID = notification.object as? ReminderOccurrence.ID
+    }
+    defer { NotificationCenter.default.removeObserver(token) }
+
+    await scheduler.handleNotificationAction(
+      ReminderNotificationIdentifier.startWorkoutAction,
+      requestIdentifier: occurrence.notificationRequestIdentifier
+    )
+
+    XCTAssertEqual(requestedReminderID, occurrence.id)
+    XCTAssertEqual(scheduler.activeReminder, occurrence)
+    XCTAssertEqual(scheduler.nextDue, due)
+  }
+
   func testSettingsChangeDoesNotDismissActiveOccurrence() async {
     let context = makeContext()
     defer { context.clearDefaults() }

@@ -10,10 +10,10 @@
 
 **Open-source beta · macOS 13+ · Apache-2.0**
 
-MellowDesk is a native menu-bar app designed to stay out of the way and offer small, friendly reminders during work. This first beta ships one module only: **NeckEase (颈间)**, a guided three-movement neck break with optional on-device camera counting.
+MellowDesk is a native menu-bar companion with one low-interruption work-break plan that rotates stand-up movement, hydration, and a guided neck-and-shoulder routine.
 
 ```text
-scheduled reminder → animated routine → local camera counting → local history
+unified reminder rhythm → stand / hydrate / neck break → local history
 ```
 
 There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begins only after you start a routine, and manual counting is always available.
@@ -23,18 +23,18 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 - A menu-bar companion with configurable workdays, work hours, reminder intervals, sound, snooze, pause, and launch at login.
 - A persistent reminder anchored to the menu-bar leaf that waits for Start, Snooze, or Pause instead of disappearing after a few seconds.
 - Local notifications with **Start** and **Snooze 10 minutes** actions.
+- A single default 50-minute rhythm rotating stand-up movement, hydration with movement, and the neck routine, with only one card at a time.
+- A two-minute movement guide and lightweight hydration check-ins without fixed-volume targets.
 - The NeckEase routine: slow left/right rotation, gentle left/right lateral flexion, and a gentle nod back to neutral.
 - Animated guidance, current direction, target repetitions, hold/return feedback, and completion results.
 - On-device head-pose counting with neutral calibration, per-movement direction adaptation, filtering, hysteresis, and complete return-to-neutral checks.
 - Manual counting when camera permission is declined, the camera is unavailable, or recognition is unreliable.
-- Local-only daily, 7-day, and 30-day completion history.
-
-Hydration, stand-up, lunch, and takeout reminders are roadmap ideas. **They are not implemented in this beta.**
+- Local-only daily, 7-day, and 30-day history by activity type.
 
 ## Privacy in one minute
 
 - Camera frames are processed in memory with Apple frameworks. They are not recorded, saved, or uploaded.
-- MellowDesk stores only settings and workout summaries on this Mac. It does not store images, face templates, audio, or frame-by-frame head angles.
+- MellowDesk stores settings, workout summaries, and stand/hydration completion times on this Mac. It does not store images, face templates, audio, or frame-by-frame head angles.
 - The app has no network entitlement and contains no account, cloud, advertising, analytics, or telemetry integration.
 - History can be cleared from Settings at any time.
 
@@ -81,8 +81,8 @@ The app is assembled at `build/MellowDesk.app` with bundle identifier `cn.eigenl
 ## First run
 
 1. Open `MellowDesk.app` and allow notifications if you want scheduled reminders.
-2. Choose **Start 3-minute movement break** from the menu-bar leaf.
-3. Start the camera session, or switch to manual counting.
+2. The default workday plan rotates stand, hydration, and neck reminders; each activity can also be started from the menu bar.
+3. For the neck routine, start the camera session or switch to manual counting.
 4. Face the screen briefly to establish a neutral pose.
 5. Before each movement, complete one small, uncounted adaptation movement and return to neutral.
 6. Follow the animation. A repetition counts only after the target hold and a visible return to neutral.
@@ -106,14 +106,12 @@ Scripts                      checks, app assembly, and local launch
 docs                         product, technical, exercise, test, and release documentation
 ```
 
-The repository currently contains **45 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
+The repository currently contains **more than 60 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
 
 ## Roadmap
 
 Future modules may include:
 
-- hydration reminders;
-- stand-up and light-movement reminders;
 - lunch and takeout reminders.
 
 Roadmap items are exploratory and are not claims about current functionality.

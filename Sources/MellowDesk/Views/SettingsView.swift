@@ -1,5 +1,6 @@
 import AppKit
 import Foundation
+import MellowDeskCore
 import SwiftUI
 import UserNotifications
 
@@ -22,7 +23,7 @@ struct SettingsView: View {
     }
     .background(AppTheme.warmBackground.opacity(0.55))
     .confirmationDialog(
-      "确定清除所有完成记录？",
+      "确定清除所有健康记录？",
       isPresented: $confirmClearHistory,
       titleVisibility: .visible
     ) {
@@ -37,16 +38,21 @@ struct SettingsView: View {
 
   private var reminderSection: some View {
     VStack(alignment: .leading, spacing: 14) {
-      Label("提醒", systemImage: "bell")
+      Label("健康计划", systemImage: "heart.text.square")
         .font(.headline)
 
       HStack {
-        Text("间隔")
+        VStack(alignment: .leading, spacing: 2) {
+          Text("工作间歇")
+          Text("三类活动共用一个提醒节奏")
+            .font(.caption)
+            .foregroundStyle(.secondary)
+        }
         Spacer()
         Picker("提醒间隔", selection: binding(\.reminderIntervalMinutes)) {
           Text("30 分钟").tag(30)
           Text("45 分钟").tag(45)
-          Text("50 分钟").tag(50)
+          Text("50 分钟（均衡）").tag(50)
           Text("60 分钟").tag(60)
           Text("90 分钟").tag(90)
         }
@@ -56,8 +62,8 @@ struct SettingsView: View {
 
       HStack {
         VStack(alignment: .leading, spacing: 2) {
-          Text("每日目标")
-          Text("用于桌面记录，不影响动作判定")
+          Text("颈肩记录目标")
+          Text("仅用于记录，不影响提醒轮换或动作判定")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -69,6 +75,20 @@ struct SettingsView: View {
         )
         .frame(width: 118)
       }
+
+      VStack(alignment: .leading, spacing: 9) {
+        planRow(number: 1, systemImage: "figure.walk", title: "起身活动 2 分钟")
+        planRow(number: 2, systemImage: "drop.fill", title: "起身补水并活动")
+        planRow(number: 3, systemImage: "figure.mind.and.body", title: "颈肩微运动 3 分钟")
+        Text(
+          "按当前间隔，每 \(appModel.settings.reminderIntervalMinutes) 分钟提醒一项；同类活动约每 \(appModel.settings.reminderIntervalMinutes * WellnessPlan.cycleLength) 分钟一次。每个恢复窗只出现一张提醒，避免连续打扰。"
+        )
+        .font(.caption)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+      }
+      .padding(12)
+      .background(AppTheme.accent.opacity(0.08), in: RoundedRectangle(cornerRadius: 13))
 
       HStack {
         Text(notificationDescription)
@@ -164,7 +184,7 @@ struct SettingsView: View {
     VStack(alignment: .leading, spacing: 13) {
       Label("隐私与数据", systemImage: "hand.raised")
         .font(.headline)
-      Text("摄像头画面只在本机内存中用于实时动作计数，不录制、不保存、不上传。历史仅保存训练时间、内容版本、逐动作目标与完成次数、计次模式和是否使用摄像头。")
+      Text("只有颈肩跟练会开启摄像头；画面只在本机内存中用于实时动作计数，不录制、不保存、不上传。历史还会在本机记录喝水与起身活动的完成时间。")
         .font(.subheadline)
         .foregroundStyle(.secondary)
         .fixedSize(horizontal: false, vertical: true)
@@ -196,6 +216,21 @@ struct SettingsView: View {
       return "尚未请求系统通知权限"
     @unknown default:
       return "无法读取通知权限"
+    }
+  }
+
+  private func planRow(number: Int, systemImage: String, title: String) -> some View {
+    HStack(spacing: 9) {
+      Text("\(number)")
+        .font(.caption2.weight(.bold))
+        .foregroundStyle(.white)
+        .frame(width: 20, height: 20)
+        .background(AppTheme.accent, in: Circle())
+      Image(systemName: systemImage)
+        .foregroundStyle(AppTheme.accent)
+        .frame(width: 18)
+      Text(title)
+        .font(.subheadline.weight(.medium))
     }
   }
 

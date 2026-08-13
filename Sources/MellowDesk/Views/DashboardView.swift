@@ -4,18 +4,33 @@ import SwiftUI
 struct DashboardView: View {
   @EnvironmentObject private var appModel: AppModel
   @State private var historyRange = 7
+  @State private var historyActivity: WellnessActivityKind?
 
   var body: some View {
-    ScrollView {
-      VStack(alignment: .leading, spacing: 22) {
+    GeometryReader { proxy in
+      let isCompact = proxy.size.height < 610
+      let pagePadding: CGFloat = isCompact ? 18 : 22
+      let sectionSpacing: CGFloat = isCompact ? 10 : 12
+      let recentWidth = min(max(proxy.size.width * 0.36, 258), 310)
+
+      VStack(alignment: .leading, spacing: sectionSpacing) {
         header
         todayCard
-        statistics
-        historyCard
-        recentCard
-        privacyNote
+        summaryStrip
+
+        HStack(alignment: .top, spacing: sectionSpacing) {
+          historyCard
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
+
+          recentCard(limit: isCompact ? 4 : 6)
+            .frame(width: recentWidth)
+            .frame(maxHeight: .infinity)
+        }
+        .frame(maxHeight: .infinity)
+        .layoutPriority(1)
       }
-      .padding(30)
+      .padding(pagePadding)
+      .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .topLeading)
     }
     .background(AppTheme.warmBackground.opacity(0.55))
     .frame(minWidth: 720, minHeight: 560)
@@ -33,15 +48,19 @@ struct DashboardView: View {
   }
 
   private var header: some View {
-    HStack(alignment: .center) {
-      VStack(alignment: .leading, spacing: 5) {
-        Text("今天也给颈肩一点活动时间")
-          .font(.system(size: 27, weight: .bold, design: .rounded))
+    HStack(alignment: .center, spacing: 12) {
+      VStack(alignment: .leading, spacing: 3) {
+        Text("今天也照顾好自己")
+          .font(.system(size: 25, weight: .bold, design: .rounded))
           .foregroundStyle(AppTheme.ink)
-        Text("每次约 3 分钟，缓慢、舒适地完成。")
+        Text("起身、补水和颈肩活动，按一个节奏轻松完成。")
+          .font(.subheadline)
           .foregroundStyle(.secondary)
+          .lineLimit(1)
       }
-      Spacer()
+
+      Spacer(minLength: 12)
+
       Button {
         AppWindowCoordinator.shared.showSettings()
       } label: {
@@ -53,7 +72,7 @@ struct DashboardView: View {
       Button {
         AppWindowCoordinator.shared.showWorkout()
       } label: {
-        Label("开始一次", systemImage: "play.fill")
+        Label("颈肩微运动", systemImage: "play.fill")
       }
       .buttonStyle(.borderedProminent)
       .tint(AppTheme.accent)
@@ -62,151 +81,244 @@ struct DashboardView: View {
   }
 
   private var todayCard: some View {
-    HStack(spacing: 28) {
-      CompletionRing(
-        progress: Double(appModel.todayCompletedCount)
-          / Double(max(appModel.settings.dailyWorkoutGoal, 1)),
-        completed: appModel.todayCompletedCount,
-        target: appModel.settings.dailyWorkoutGoal
-      )
-
-      VStack(alignment: .leading, spacing: 9) {
-        Text(todayMessage)
-          .font(.title3.weight(.bold))
+    HStack(spacing: 14) {
+      VStack(alignment: .leading, spacing: 4) {
+        Text("今日状态")
+          .font(.headline)
           .foregroundStyle(AppTheme.ink)
+
         Text(nextReminderText)
-          .font(.subheadline)
+          .font(.caption)
           .foregroundStyle(.secondary)
+          .lineLimit(1)
+          .minimumScaleFactor(0.85)
 
         if let last = appModel.lastCompletedAt {
-          PillLabel(
-            systemImage: "checkmark.circle.fill",
-            text: "上次完成 \(AppFormatters.relative.localizedString(for: last, relativeTo: Date()))"
-          )
+          HStack(spacing: 3) {
+            Image(systemName: "checkmark.circle.fill")
+            Text("上次")
+            Text(last, style: .relative)
+          }
+          .font(.caption2.weight(.medium))
+          .foregroundStyle(AppTheme.accent)
+        } else {
+          Text("完成一次后，这里会留下记录")
+            .font(.caption2)
+            .foregroundStyle(.tertiary)
         }
       }
-      Spacer()
+      .frame(minWidth: 180, idealWidth: 205, maxWidth: 230, alignment: .leading)
+
+      Divider()
+        .frame(height: 48)
+
+      todayMetric(.stand)
+      todayMetric(.water)
+      todayMetric(.neck)
     }
-    .appCard()
+    .appCard(padding: 14)
   }
 
-  private var statistics: some View {
-    HStack(spacing: 14) {
-      StatTile(
+  private func todayMetric(_ activity: WellnessActivityKind) -> some View {
+    VStack(alignment: .leading, spacing: 5) {
+      Label(activity.localizedName, systemImage: activity.systemImage)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(AppTheme.accent)
+        .lineLimit(1)
+      Text(todayCountText(for: activity))
+        .font(.title3.weight(.bold))
+        .foregroundStyle(AppTheme.ink)
+        .monospacedDigit()
+    }
+    .frame(maxWidth: .infinity, alignment: .leading)
+    .accessibilityElement(children: .combine)
+  }
+
+  private var summaryStrip: some View {
+    HStack(spacing: 0) {
+      summaryMetric(
         title: "近 7 天",
         value: "\(appModel.completedCount(inLastDays: 7)) 次",
-        caption: "完成的微运动",
-        systemImage: "calendar"
+        systemImage: "calendar",
+        tint: AppTheme.accent
       )
-      StatTile(
+
+      Divider()
+        .padding(.vertical, 2)
+
+      summaryMetric(
         title: "近 30 天",
         value: "\(appModel.completedCount(inLastDays: 30)) 次",
-        caption: "仅保存在本机",
         systemImage: "chart.bar.fill",
         tint: Color(red: 0.35, green: 0.48, blue: 0.78)
       )
-      StatTile(
+
+      Divider()
+        .padding(.vertical, 2)
+
+      summaryMetric(
         title: "连续记录",
         value: "\(appModel.currentStreak) 天",
-        caption: "不要求每天满额",
         systemImage: "flame.fill",
         tint: AppTheme.warning
       )
     }
+    .appCard(padding: 10)
+  }
+
+  private func summaryMetric(
+    title: String,
+    value: String,
+    systemImage: String,
+    tint: Color
+  ) -> some View {
+    HStack(spacing: 9) {
+      Image(systemName: systemImage)
+        .font(.system(size: 14, weight: .semibold))
+        .foregroundStyle(tint)
+        .frame(width: 28, height: 28)
+        .background(tint.opacity(0.12), in: RoundedRectangle(cornerRadius: 8))
+
+      VStack(alignment: .leading, spacing: 1) {
+        Text(title)
+          .font(.caption)
+          .foregroundStyle(.secondary)
+        Text(value)
+          .font(.subheadline.weight(.bold))
+          .foregroundStyle(AppTheme.ink)
+          .monospacedDigit()
+      }
+      Spacer(minLength: 4)
+    }
+    .padding(.horizontal, 12)
+    .frame(maxWidth: .infinity)
+    .accessibilityElement(children: .combine)
   }
 
   private var historyCard: some View {
-    VStack(alignment: .leading, spacing: 16) {
-      HStack {
+    VStack(alignment: .leading, spacing: 10) {
+      HStack(spacing: 8) {
         Text("完成趋势")
           .font(.headline)
-        Spacer()
+
+        Spacer(minLength: 4)
+
+        Picker("活动类型", selection: $historyActivity) {
+          Text("全部").tag(Optional<WellnessActivityKind>.none)
+          ForEach(WellnessActivityKind.allCases, id: \.self) { activity in
+            Text(activity.localizedName).tag(Optional(activity))
+          }
+        }
+        .labelsHidden()
+        .pickerStyle(.menu)
+        .frame(width: 108)
+
         Picker("时间范围", selection: $historyRange) {
           Text("7 天").tag(7)
           Text("30 天").tag(30)
         }
         .labelsHidden()
         .pickerStyle(.segmented)
-        .frame(width: 150)
+        .frame(width: 126)
       }
 
-      HistoryBarChart(values: appModel.dailyCompletions(days: historyRange))
-        .frame(height: 175)
+      HistoryBarChart(
+        values: appModel.dailyCompletions(
+          days: historyRange,
+          activity: historyActivity
+        )
+      )
+      .frame(maxWidth: .infinity, maxHeight: .infinity)
     }
-    .appCard()
+    .frame(maxHeight: .infinity, alignment: .top)
+    .appCard(padding: 14)
   }
 
-  private var recentCard: some View {
-    VStack(alignment: .leading, spacing: 13) {
-      Text("近期完成")
-        .font(.headline)
+  private func recentCard(limit: Int) -> some View {
+    let items = appModel.recentWellnessItems(limit: limit)
 
-      if appModel.historyStore.recentCompleted(limit: 1).isEmpty {
-        HStack(spacing: 10) {
+    return VStack(alignment: .leading, spacing: 8) {
+      HStack {
+        Text("近期完成")
+          .font(.headline)
+        Spacer()
+        if !items.isEmpty {
+          Text("最近 \(items.count) 次")
+            .font(.caption2)
+            .foregroundStyle(.secondary)
+        }
+      }
+
+      if items.isEmpty {
+        Spacer(minLength: 0)
+        VStack(spacing: 8) {
           Image(systemName: "clock")
-          Text("完成第一次微运动后，记录会显示在这里。")
+            .font(.title3)
+          Text("完成第一次工作间歇后，记录会显示在这里。")
+            .font(.caption)
+            .multilineTextAlignment(.center)
         }
         .foregroundStyle(.secondary)
-        .padding(.vertical, 12)
+        .frame(maxWidth: .infinity)
+        Spacer(minLength: 0)
       } else {
-        ForEach(appModel.historyStore.recentCompleted(limit: 6)) { session in
-          HStack(spacing: 12) {
-            Image(systemName: "checkmark")
-              .font(.caption.weight(.bold))
-              .foregroundStyle(.white)
-              .frame(width: 25, height: 25)
-              .background(AppTheme.accent, in: Circle())
-
-            VStack(alignment: .leading, spacing: 2) {
-              Text(sessionTitle(for: session))
-                .font(.subheadline.weight(.semibold))
-              Text(sessionSubtitle(for: session))
-                .font(.caption)
-                .foregroundStyle(.secondary)
-            }
-            Spacer()
-            if let endedAt = session.endedAt {
-              Text(AppFormatters.dateTime.string(from: endedAt))
-                .font(.caption)
-                .foregroundStyle(.secondary)
+        VStack(spacing: 0) {
+          ForEach(Array(items.enumerated()), id: \.element.id) { index, item in
+            recentRow(item)
+            if index < items.count - 1 {
+              Divider()
+                .padding(.leading, 35)
             }
           }
-          .padding(.vertical, 5)
         }
+        Spacer(minLength: 0)
       }
     }
-    .appCard()
+    .frame(maxHeight: .infinity, alignment: .top)
+    .appCard(padding: 14)
   }
 
-  private var privacyNote: some View {
-    HStack(spacing: 11) {
-      Image(systemName: "hand.raised.fill")
-        .foregroundStyle(AppTheme.accent)
-      Text("摄像头仅在训练时开启；画面与姿态数据只在内存中本地处理，不保存、不上传。")
-        .font(.caption)
+  private func recentRow(_ item: WellnessHistoryItem) -> some View {
+    HStack(spacing: 10) {
+      Image(systemName: item.activity.systemImage)
+        .font(.caption.weight(.semibold))
+        .foregroundStyle(.white)
+        .frame(width: 25, height: 25)
+        .background(AppTheme.accent, in: Circle())
+
+      VStack(alignment: .leading, spacing: 2) {
+        Text(item.activity.completionTitle)
+          .font(.caption.weight(.semibold))
+          .foregroundStyle(AppTheme.ink)
+          .lineLimit(1)
+
+        HStack(spacing: 5) {
+          Text(item.detail)
+            .lineLimit(1)
+          Spacer(minLength: 2)
+          Text(AppFormatters.relative.localizedString(for: item.completedAt, relativeTo: Date()))
+            .lineLimit(1)
+        }
+        .font(.caption2)
         .foregroundStyle(.secondary)
-      Spacer()
+      }
     }
-    .padding(.horizontal, 4)
+    .padding(.vertical, 6)
+    .accessibilityElement(children: .combine)
   }
 
-  private var todayMessage: String {
-    let remaining = max(0, appModel.settings.dailyWorkoutGoal - appModel.todayCompletedCount)
-    return remaining == 0 ? "今天的计划已完成" : "今天还可以完成 \(remaining) 次"
+  private func todayCountText(for activity: WellnessActivityKind) -> String {
+    let count = appModel.todayCount(for: activity)
+    if activity == .neck {
+      return "\(count)/\(appModel.settings.dailyWorkoutGoal) 次"
+    }
+    return "\(count) 次"
   }
 
   private var nextReminderText: String {
     if appModel.settings.isPaused { return "提醒已暂停至明天" }
     guard let due = appModel.nextDue else { return "提醒将在授权后开始" }
-    return "下次提醒：\(AppFormatters.dateTime.string(from: due))"
-  }
-
-  private func sessionTitle(for session: WorkoutSession) -> String {
-    "完成一组颈部微运动"
-  }
-
-  private func sessionSubtitle(for session: WorkoutSession) -> String {
-    guard let endedAt = session.endedAt else { return "" }
-    return "用时 \(AppFormatters.duration(seconds: endedAt.timeIntervalSince(session.startedAt)))"
+    let activity = appModel.reminderScheduler.nextActivity.localizedName
+    return "下次 \(activity) · \(AppFormatters.time.string(from: due))"
   }
 }

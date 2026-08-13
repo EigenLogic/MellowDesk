@@ -1,4 +1,5 @@
 import AppKit
+import MellowDeskCore
 import SwiftUI
 
 struct MenuBarContentView: View {
@@ -22,6 +23,24 @@ struct MenuBarContentView: View {
         .tint(AppTheme.accent)
         .controlSize(.large)
 
+        HStack(spacing: 8) {
+          Button {
+            appModel.recordWaterNow()
+            AppWindowCoordinator.shared.dismissStatusMenu()
+          } label: {
+            Label("喝水打卡", systemImage: "drop.fill")
+              .frame(maxWidth: .infinity)
+          }
+
+          Button {
+            appModel.startManualMovementBreak()
+            AppWindowCoordinator.shared.dismissStatusMenu()
+          } label: {
+            Label("起身动动", systemImage: "figure.walk")
+              .frame(maxWidth: .infinity)
+          }
+        }
+
         if appModel.settings.isPaused {
           Button("恢复提醒") {
             appModel.resumeReminders()
@@ -29,19 +48,11 @@ struct MenuBarContentView: View {
           }
           .frame(maxWidth: .infinity)
         } else {
-          HStack(spacing: 8) {
-            Button("推迟 10 分钟") {
-              appModel.snoozeTenMinutes()
-              AppWindowCoordinator.shared.dismissStatusMenu()
-            }
-            .frame(maxWidth: .infinity)
-
-            Button("今天暂停") {
-              appModel.pauseUntilTomorrow()
-              AppWindowCoordinator.shared.dismissStatusMenu()
-            }
-            .frame(maxWidth: .infinity)
+          Button("今天暂停所有提醒") {
+            appModel.pauseUntilTomorrow()
+            AppWindowCoordinator.shared.dismissStatusMenu()
           }
+          .frame(maxWidth: .infinity)
         }
       }
       .padding(14)
@@ -78,10 +89,16 @@ struct MenuBarContentView: View {
           Text("小桌伴")
             .font(.headline)
           Spacer()
-          Text("今日 \(appModel.todayCompletedCount)/\(appModel.settings.dailyWorkoutGoal)")
+          Text("今日 \(appModel.todayCompletedCount) 次")
             .font(.caption.weight(.semibold))
             .foregroundStyle(AppTheme.accent)
         }
+
+        Text(
+          "颈肩 \(appModel.todayCount(for: .neck)) · 喝水 \(appModel.todayCount(for: .water)) · 起身 \(appModel.todayCount(for: .stand))"
+        )
+        .font(.caption2.weight(.medium))
+        .foregroundStyle(AppTheme.secondaryInk)
 
         reminderDescription
           .font(.caption)
@@ -98,7 +115,7 @@ struct MenuBarContentView: View {
       Text("提醒等待处理中")
     } else if let nextDue = appModel.nextDue {
       HStack(spacing: 0) {
-        Text("下次提醒 ")
+        Text("下次：\(appModel.reminderScheduler.nextActivity.localizedName) ")
         // The relative date Text owns a clock and refreshes as time passes.
         Text(nextDue, style: .relative)
       }

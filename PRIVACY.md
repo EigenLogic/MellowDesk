@@ -1,8 +1,8 @@
 # MellowDesk Privacy Policy / 小桌伴隐私政策
 
-Effective date / 生效日期: 2026-08-11
+Effective date / 生效日期: 2026-08-13
 
-Applies to / 适用版本: v0.1.0-beta.1 through v0.1.0-beta.3
+Applies to / 适用版本: v0.1.0-beta.1 and later / 及后续版本
 
 ## English
 
@@ -20,7 +20,7 @@ MellowDesk is designed for local use. The app does not create an account, send a
 
 ### Data stored on this Mac
 
-Settings are stored in UserDefaults. They may include the reminder interval, selected weekdays, work hours, sound preference, launch-at-login preference, pause date, daily goal, and the next scheduled reminder.
+Settings and durable reminder state are stored in UserDefaults. They may include the reminder interval, selected weekdays, work hours, sound preference, launch-at-login preference, pause date, daily goal, the next scheduled reminder, and its position in the stand/hydration/neck rotation.
 
 Workout history is stored as an atomic JSON file in the app's Application Support container. It contains:
 
@@ -29,6 +29,8 @@ Workout history is stored as an atomic JSON file in the app's Application Suppor
 - for each movement, the movement ID, target repetitions, completed repetitions, and completion mode.
 
 Displayed duration is calculated from start and end times. MellowDesk does not store video, photos, audio, identity data, face templates, or per-frame pose samples in workout history.
+
+Stand-up and hydration completions are stored separately in `wellness-history.json` in the same local Application Support container. It contains a schema version and, for each completion, a random record ID, activity type, completion time, and an optional local reminder source ID used only to prevent duplicate records. It does not contain water volume, health measurements, or identity data.
 
 ### Network and third parties
 
@@ -46,7 +48,7 @@ Declining camera access does not block the routine; manual counting remains avai
 
 ### Retention and deletion
 
-Settings and history remain in the app container until you change or delete them. Use **Settings → Clear all history** to delete workout history. You can revoke camera and notification permissions in macOS System Settings. Removing local app data is controlled by macOS and the user.
+Settings and history remain in the app container until you change or delete them. Use **Settings → Clear all history** to clear both workout history and stand/hydration completion history. You can revoke camera and notification permissions in macOS System Settings. Removing local app data is controlled by macOS and the user.
 
 ### Privacy-safe issue reporting
 
@@ -72,7 +74,7 @@ Material changes to data handling will update this file, its effective date, and
 
 ### 保存在本机的数据
 
-设置使用 UserDefaults 保存，可能包括提醒间隔、工作日、工作时段、声音、登录启动、暂停日期、每日目标和下一次提醒时间。
+设置和持久提醒状态使用 UserDefaults 保存，可能包括提醒间隔、工作日、工作时段、声音、登录启动、暂停日期、每日目标、下一次提醒时间，以及它在“起身/补水/颈肩”轮换中的位置。
 
 训练历史以原子 JSON 文件保存在 App 的 Application Support 容器中，包含：
 
@@ -81,6 +83,8 @@ Material changes to data handling will update this file, its effective date, and
 - 每个动作的动作 ID、目标次数、完成次数和完成模式。
 
 界面中的用时由开始和结束时间计算。训练历史不包含视频、照片、音频、身份信息、人脸模板或逐帧姿态样本。
+
+起身与喝水完成记录单独保存在同一 Application Support 容器的 `wellness-history.json` 中，包含存储结构版本，以及每条记录的随机 ID、活动类型、完成时间和可选的本地提醒来源 ID。来源 ID 只用于防止重复记录；文件不保存饮水量、健康测量值或身份信息。
 
 ### 网络与第三方
 
@@ -98,7 +102,7 @@ Material changes to data handling will update this file, its effective date, and
 
 ### 保留与删除
 
-设置和历史会保留在 App 容器中，直到用户修改或删除。使用“设置 → 清除所有历史”可删除训练历史。摄像头和通知权限可在 macOS 系统设置中撤销。本地 App 数据的移除由用户和 macOS 控制。
+设置和历史会保留在 App 容器中，直到用户修改或删除。使用“设置 → 清除所有历史”可同时清除训练历史和起身/喝水完成记录。摄像头和通知权限可在 macOS 系统设置中撤销。本地 App 数据的移除由用户和 macOS 控制。
 
 ### 保护隐私地报告问题
 

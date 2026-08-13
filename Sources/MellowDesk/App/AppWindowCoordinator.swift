@@ -1,4 +1,5 @@
 import AppKit
+import MellowDeskCore
 import OSLog
 import SwiftUI
 
@@ -25,6 +26,10 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private var workoutWindow: NSWindow?
   private var workoutViewModel: WorkoutViewModel?
   private var workoutCloseObserver: WindowCloseObserver?
+  private var movementBreakWindow: NSWindow?
+  private var movementBreakCloseObserver: WindowCloseObserver?
+  private var movementBreakSessionID: UUID?
+  private var movementBreakDidResolve = false
   private var statusItem: NSStatusItem?
   private var statusPopover: NSPopover?
   private var statusPopoverMode: StatusPopoverMode?
@@ -34,6 +39,8 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private var lastAudibleReminderID: String?
   private var reminderWorkoutRestore: DispatchWorkItem?
   private weak var pendingReminderWorkoutWindow: NSWindow?
+  private var reminderMovementBreakRestore: DispatchWorkItem?
+  private weak var pendingReminderMovementBreakWindow: NSWindow?
   private var pendingInitialCameraAuthorizationWindow: NSWindow?
   private var initialCameraAuthorizationRestoreFallback: DispatchWorkItem?
   private let logger = Logger(
@@ -195,8 +202,155 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     DispatchQueue.main.async(execute: present)
   }
 
+  /// Reminder panels do not activate this menu-bar app. Let the panel's click finish,
+  /// then create the requested break window and explicitly restore it to the front.
+  func showMovementBreakFromReminder(_ occurrence: ReminderOccurrence) {
+    guard occurrence.activity.isQuickActivity else { return }
+    reminderMovementBreakRestore?.cancel()
+
+    let show = DispatchWorkItem { [weak self] in
+      guard let self else { return }
+      let window = self.prepareMovementBreakWindow(
+        activity: occurrence.activity,
+        sourceID: occurrence.id,
+        fromReminder: true
+      )
+
+      self.pendingReminderMovementBreakWindow = window
+      window.orderFrontRegardless()
+      self.requestApplicationActivation()
+      self.reminderLogger.notice(
+        "Reminder movement break force-fronted; appActive=\(NSApp.isActive, privacy: .public)"
+      )
+
+      let fallback = DispatchWorkItem { [weak self, weak window] in
+        guard let self, let window, window === self.movementBreakWindow else { return }
+        if NSApp.isActive {
+          window.makeKeyAndOrderFront(nil)
+        } else {
+          window.orderFrontRegardless()
+        }
+        self.pendingReminderMovementBreakWindow = nil
+        self.reminderMovementBreakRestore = nil
+      }
+      self.reminderMovementBreakRestore = fallback
+      DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: fallback)
+    }
+    reminderMovementBreakRestore = show
+    DispatchQueue.main.async(execute: show)
+  }
+
+  func showManualMovementBreak() {
+    dismissStatusMenu()
+    if let movementBreakWindow {
+      present(movementBreakWindow)
+      return
+    }
+
+    let window = prepareMovementBreakWindow(
+      activity: .stand,
+      sourceID: nil,
+      fromReminder: false
+    )
+    present(window)
+  }
+
   func closeWorkout() {
     workoutWindow?.close()
+  }
+
+  private func prepareMovementBreakWindow(
+    activity: WellnessActivityKind,
+    sourceID: String?,
+    fromReminder: Bool
+  ) -> NSWindow {
+    movementBreakWindow?.close()
+
+    let sessionID = UUID()
+    let view = MovementBreakView(
+      includesWater: activity == .water,
+      onComplete: { [weak self] in
+        self?.resolveMovementBreak(
+          sessionID: sessionID,
+          activity: activity,
+          sourceID: sourceID,
+          fromReminder: fromReminder,
+          completed: true
+        )
+      },
+      onCancel: { [weak self] in
+        self?.resolveMovementBreak(
+          sessionID: sessionID,
+          activity: activity,
+          sourceID: sourceID,
+          fromReminder: fromReminder,
+          completed: false
+        )
+      }
+    )
+    let window = makeWindow(
+      title: activity == .water ? "喝水与起身活动" : "起身活动",
+      size: NSSize(width: 620, height: 520),
+      minimumSize: NSSize(width: 560, height: 480),
+      rootView: view
+    )
+    let observer = WindowCloseObserver(
+      onClose: { [weak self, weak window] in
+        guard let window else { return }
+        self?.movementBreakWindowDidClose(
+          window,
+          sessionID: sessionID,
+          fromReminder: fromReminder
+        )
+      },
+      onMiniaturize: {},
+      onDeminiaturize: {}
+    )
+    window.delegate = observer
+
+    movementBreakWindow = window
+    movementBreakCloseObserver = observer
+    movementBreakSessionID = sessionID
+    movementBreakDidResolve = false
+    return window
+  }
+
+  private func resolveMovementBreak(
+    sessionID: UUID,
+    activity: WellnessActivityKind,
+    sourceID: String?,
+    fromReminder: Bool,
+    completed: Bool
+  ) {
+    guard movementBreakSessionID == sessionID, !movementBreakDidResolve else { return }
+    movementBreakDidResolve = true
+
+    if completed {
+      AppModel.shared.completeQuickActivity(activity, sourceID: sourceID)
+    } else {
+      AppModel.shared.quickActivityDismissed(fromReminder: fromReminder)
+    }
+    movementBreakWindow?.close()
+  }
+
+  private func movementBreakWindowDidClose(
+    _ window: NSWindow,
+    sessionID: UUID,
+    fromReminder: Bool
+  ) {
+    guard movementBreakWindow === window, movementBreakSessionID == sessionID else { return }
+    if !movementBreakDidResolve {
+      movementBreakDidResolve = true
+      AppModel.shared.quickActivityDismissed(fromReminder: fromReminder)
+    }
+
+    reminderMovementBreakRestore?.cancel()
+    reminderMovementBreakRestore = nil
+    pendingReminderMovementBreakWindow = nil
+    movementBreakWindow = nil
+    movementBreakCloseObserver = nil
+    movementBreakSessionID = nil
+    movementBreakDidResolve = false
   }
 
   func syncReminder(_ occurrence: ReminderOccurrence?) {
@@ -223,6 +377,15 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
       self.pendingReminderWorkoutWindow = nil
       reminderWorkoutRestore?.cancel()
       reminderWorkoutRestore = nil
+    }
+    if let pendingReminderMovementBreakWindow,
+      pendingReminderMovementBreakWindow === movementBreakWindow,
+      pendingReminderMovementBreakWindow.isVisible
+    {
+      pendingReminderMovementBreakWindow.makeKeyAndOrderFront(nil)
+      self.pendingReminderMovementBreakWindow = nil
+      reminderMovementBreakRestore?.cancel()
+      reminderMovementBreakRestore = nil
     }
     if let activeReminder = AppModel.shared.activeReminder {
       showReminderPanel(activeReminder)
@@ -263,7 +426,7 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     let view = MenuBarContentView()
       .environmentObject(AppModel.shared)
     presentStatusPopover(
-      contentSize: NSSize(width: 330, height: 288),
+      contentSize: NSSize(width: 330, height: 354),
       contentViewController: NSHostingController(rootView: view)
     )
   }
