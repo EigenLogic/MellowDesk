@@ -4,7 +4,16 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 ## Unreleased
 
-- No unreleased user-visible changes recorded.
+### Added
+
+- A unified work-break rotation for stand-up movement, hydration, and the existing neck-and-shoulder routine.
+- A two-minute guided movement window, lightweight hydration check-ins, and local per-activity history.
+- Activity-aware persistent cards, system notifications, menu-bar status, settings, dashboard totals, trends, and recent completions.
+
+### Changed
+
+- New installations start with a balanced 50-minute rhythm. Only one activity is due at a time; snoozing preserves that activity, while completion advances the rotation.
+- Existing beta reminder state and neck-workout history remain readable.
 
 ## [0.1.0-beta.3] - 2026-08-12
 

@@ -1,4 +1,4 @@
-# 小桌伴 MellowDesk：颈间模块技术设计
+# 小桌伴 MellowDesk：工作健康计划技术设计
 
 ## 1. 技术选型
 
@@ -25,8 +25,12 @@ flowchart LR
   Counter --> Workout["WorkoutViewModel"]
   Workout --> UI["SwiftUI animation and feedback"]
   Workout --> History["atomic JSON history"]
-  History --> Dashboard["today / 7d / 30d"]
+  Quick["stand / hydration completion"] --> ActivityHistory["atomic wellness history"]
+  History --> Dashboard["today / 7d / 30d by activity"]
+  ActivityHistory --> Dashboard
   Reminder["ReminderScheduler"] --> Notification["local notification"]
+  Plan["WellnessPlan rotation"] --> Reminder
+  Notification --> Quick
   Notification --> Workout
 ```
 
@@ -35,7 +39,7 @@ flowchart LR
 ```text
 MellowDeskCore
   ExercisePlan / MotionSample / NeutralCalibrator / RepCounter
-  WorkoutSession / WorkoutStatisticsCalculator / ReminderSchedule
+  WorkoutSession / ActivityCompletion / WellnessPlan / ReminderSchedule
 
 MellowDesk
   Camera       摄像头生命周期与 Vision 推理
@@ -89,9 +93,9 @@ ready → calibrating → calibratingDirection → exercising → transitioning 
 
 ## 6. 提醒语义
 
-默认工作日 09:00–18:00、间隔 50 分钟。工作时段内从当前时间加完整间隔；时段外移动到下一个工作窗口起点。系统中始终只保留一条下一提醒。
+默认工作日 09:00–18:00、间隔 50 分钟。工作时段内从当前时间加完整间隔；时段外移动到下一个工作窗口起点。系统中始终只保留一条下一提醒，并按 `stand → water → neck` 轮换。补水项目同时打开两分钟起身活动引导，不记录或要求固定饮水量。
 
-常驻进程为每个 due time 保留一个轻量 rollover task：通知到期后，即使用户没有点击，也会安排下一条；从睡眠唤醒、系统时间变化、时区变化和日期变化时重新检查过期状态。不会补发一串错过的通知。
+常驻进程为每个 due time 保留一个轻量 rollover task：到期后创建可跨重启恢复的 `ReminderOccurrence`，并持续显示菜单栏提醒，直到用户开始、推迟或暂停。推迟保留当前 slot；只有完成才推进 slot；中途关闭会在当前 slot 重新安排。从睡眠唤醒、系统时间变化、时区变化和日期变化时重新检查过期状态，不补发一串错过的通知。系统通知只是 App 未运行、App Nap 或睡眠场景下的单条 fallback。
 
 ## 7. 持久化
 
@@ -100,9 +104,10 @@ ready → calibrating → calibratingDirection → exercising → transitioning 
 ```text
 ~/Library/Containers/cn.eigenlogic.mellowdesk/
   Data/Library/Application Support/MellowDesk/workout-history.json
+  Data/Library/Application Support/MellowDesk/wellness-history.json
 ```
 
-App Sandbox 下实际根目录由系统重定向。写入使用 `Data.write(options: .atomic)`；若 JSON 损坏，原文件先移动为唯一 `workout-history.corrupt-*.json`，随后恢复空 archive。
+App Sandbox 下实际根目录由系统重定向。两个文件都使用 `Data.write(options: .atomic)`；若 JSON 损坏，原文件先移动为唯一的 `*.corrupt-*` 备份，随后恢复空 archive。
 
 核心模型：
 
@@ -116,6 +121,9 @@ WorkoutSession
 
 ExerciseResult (results[])
   exerciseID, targetReps, completedReps, mode(camera/manual/timer)
+
+ActivityCompletion
+  id, activity(stand/water), completedAt, sourceID?
 ```
 
 历史不单独保存用时；展示时由 `endedAt - startedAt` 计算。
@@ -142,6 +150,8 @@ ExerciseResult (results[])
 - 不稳定中立位拒绝、中立区上限和暂停失效后配额保留。
 - 今日、7 天、30 天统计边界。
 - 工作日前后、下班后、周末和 snooze 提醒边界。
+- 三项轮换、旧版提醒迁移、推迟保槽、完成推进、关闭不推进和重启持久化。
+- 起身/喝水轻量历史的原子写入、幂等去重、日历边界和损坏恢复。
 
 自动检查入口：
 

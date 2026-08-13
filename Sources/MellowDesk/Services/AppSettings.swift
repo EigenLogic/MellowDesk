@@ -9,7 +9,7 @@ struct AppSettings: Codable, Equatable, Sendable {
   static let defaultWorkdayWeekdays: Set<Int> = [2, 3, 4, 5, 6]
   static let defaultWorkStartMinutes = 9 * 60
   static let defaultWorkEndMinutes = 18 * 60
-  static let defaultDailyWorkoutGoal = 4
+  static let defaultDailyWorkoutGoal = 3
 
   var reminderIntervalMinutes: Int
   var workdayWeekdays: Set<Int>

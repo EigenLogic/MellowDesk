@@ -1,3 +1,4 @@
+import MellowDeskCore
 import SwiftUI
 
 struct StatusReminderView: View {
@@ -33,17 +34,17 @@ struct ReminderCardView: View {
   var body: some View {
     VStack(alignment: .leading, spacing: 14) {
       HStack(alignment: .top, spacing: 12) {
-        Image(systemName: "leaf.fill")
+        Image(systemName: activity.systemImage)
           .font(.system(size: 20, weight: .semibold))
           .foregroundStyle(.white)
           .frame(width: 42, height: 42)
           .background(AppTheme.accent, in: RoundedRectangle(cornerRadius: 12))
 
         VStack(alignment: .leading, spacing: 3) {
-          Text("该活动一下颈肩了")
+          Text(title)
             .font(.headline)
             .foregroundStyle(AppTheme.ink)
-          Text("用 3 分钟跟着动画活动一下。选择操作前，这张提醒会一直留在这里。")
+          Text(message)
             .font(.caption)
             .foregroundStyle(AppTheme.secondaryInk)
             .fixedSize(horizontal: false, vertical: true)
@@ -58,7 +59,7 @@ struct ReminderCardView: View {
           isResolving = false
         }
       } label: {
-        Label("开始 3 分钟微运动", systemImage: "play.fill")
+        Label(primaryActionTitle, systemImage: "play.fill")
           .frame(maxWidth: .infinity)
       }
       .buttonStyle(.borderedProminent)
@@ -92,5 +93,42 @@ struct ReminderCardView: View {
       RoundedRectangle(cornerRadius: 20, style: .continuous)
         .stroke(Color.primary.opacity(0.10), lineWidth: 1)
     )
+  }
+
+  private var activity: WellnessActivityKind {
+    appModel.activeReminder?.activity ?? .neck
+  }
+
+  private var title: String {
+    switch activity {
+    case .stand:
+      return "起来走两步吧"
+    case .water:
+      return "要不要喝几口水？"
+    case .neck:
+      return "给颈肩 3 分钟"
+    }
+  }
+
+  private var message: String {
+    switch activity {
+    case .stand:
+      return "离开椅子活动 2 分钟。选择操作前，这张提醒会一直留在这里。"
+    case .water:
+      return "起身接点水，顺便活动 2 分钟；按自己的节奏喝就好。"
+    case .neck:
+      return "跟着动画缓慢活动，只做到舒适范围；提醒会一直留在这里。"
+    }
+  }
+
+  private var primaryActionTitle: String {
+    switch activity {
+    case .stand:
+      return "开始 2 分钟活动"
+    case .water:
+      return "喝水并活动 2 分钟"
+    case .neck:
+      return "开始 3 分钟微运动"
+    }
   }
 }

@@ -9,6 +9,7 @@ final class AppModel: ObservableObject {
 
   let settingsStore: SettingsStore
   let historyStore: HistoryStore
+  let activityHistoryStore: ActivityHistoryStore
   let reminderScheduler: ReminderScheduler
   let launchAtLoginService: LaunchAtLoginService
 
@@ -20,16 +21,19 @@ final class AppModel: ObservableObject {
   init(
     settingsStore: SettingsStore? = nil,
     historyStore: HistoryStore? = nil,
+    activityHistoryStore: ActivityHistoryStore? = nil,
     reminderScheduler: ReminderScheduler? = nil,
     launchAtLoginService: LaunchAtLoginService? = nil
   ) {
     self.settingsStore = settingsStore ?? SettingsStore()
     self.historyStore = historyStore ?? HistoryStore()
+    self.activityHistoryStore = activityHistoryStore ?? ActivityHistoryStore()
     self.reminderScheduler = reminderScheduler ?? ReminderScheduler()
     self.launchAtLoginService = launchAtLoginService ?? LaunchAtLoginService()
 
     self.settingsStore.objectWillChange
       .merge(with: self.historyStore.objectWillChange)
+      .merge(with: self.activityHistoryStore.objectWillChange)
       .merge(with: self.reminderScheduler.objectWillChange)
       .merge(with: self.launchAtLoginService.objectWillChange)
       .sink { [weak self] _ in self?.objectWillChange.send() }
@@ -41,14 +45,16 @@ final class AppModel: ObservableObject {
   var activeReminder: ReminderOccurrence? { reminderScheduler.activeReminder }
 
   var todayCompletedCount: Int {
-    completedSessions(on: Date()).count
+    todayCount(for: .neck) + todayCount(for: .water) + todayCount(for: .stand)
   }
 
   var lastCompletedAt: Date? {
-    historyStore.sessions
+    let neckCompletion = historyStore.sessions
       .filter { $0.status == .completed }
       .compactMap(\.endedAt)
       .max()
+    let quickCompletion = activityHistoryStore.completions.map(\.completedAt).max()
+    return [neckCompletion, quickCompletion].compactMap { $0 }.max()
   }
 
   func start() {
@@ -63,10 +69,11 @@ final class AppModel: ObservableObject {
       }
       .store(in: &cancellables)
 
-    NotificationCenter.default.publisher(for: .mellowDeskStartWorkoutRequested)
+    NotificationCenter.default.publisher(for: .mellowDeskStartActivityRequested)
       .receive(on: RunLoop.main)
-      .sink { _ in
-        AppWindowCoordinator.shared.showWorkout()
+      .sink { [weak self] notification in
+        guard let reminderID = notification.object as? ReminderOccurrence.ID else { return }
+        _ = self?.startCurrentReminder(id: reminderID)
       }
       .store(in: &cancellables)
 
@@ -118,10 +125,45 @@ final class AppModel: ObservableObject {
 
   @discardableResult
   func startCurrentReminder(id: ReminderOccurrence.ID) -> Bool {
-    guard activeReminder?.id == id else { return false }
-    AppWindowCoordinator.shared.showWorkoutFromReminder()
-    guard reminderScheduler.workoutStarted(reminderID: id) else { return false }
+    guard let occurrence = activeReminder, occurrence.id == id else { return false }
+    switch occurrence.activity {
+    case .neck:
+      AppWindowCoordinator.shared.showWorkoutFromReminder()
+    case .stand, .water:
+      AppWindowCoordinator.shared.showMovementBreakFromReminder(occurrence)
+    }
+    guard reminderScheduler.activityStarted(reminderID: id) else { return false }
     return true
+  }
+
+  func recordWaterNow() {
+    saveQuickCompletion(activity: .water, at: Date(), sourceID: nil)
+  }
+
+  func startManualMovementBreak() {
+    reminderScheduler.activityStarted()
+    AppWindowCoordinator.shared.showManualMovementBreak()
+  }
+
+  func completeQuickActivity(
+    _ activity: WellnessActivityKind,
+    sourceID: String?,
+    at completionDate: Date = Date()
+  ) {
+    saveQuickCompletion(activity: activity, at: completionDate, sourceID: sourceID)
+    reminderScheduler.recordActivityCompletion(at: completionDate, settings: settings)
+    Task {
+      await reminderScheduler.reconcileDue(settings: settings, now: completionDate)
+    }
+  }
+
+  func quickActivityDismissed(fromReminder: Bool) {
+    Task {
+      await reminderScheduler.activityDismissed(
+        settings: settings,
+        snoozeMinutes: fromReminder ? 10 : nil
+      )
+    }
   }
 
   func pauseUntilTomorrow() {
@@ -148,21 +190,20 @@ final class AppModel: ObservableObject {
   @discardableResult
   func saveCompletedSession(_ session: WorkoutSession) -> Bool {
     let completionDate = session.endedAt ?? Date()
-    Task {
-      await reminderScheduler.workoutCompleted(
-        at: completionDate,
-        settings: settings
-      )
-    }
-
+    let didSave: Bool
     do {
       try historyStore.append(session)
       lastUserFacingError = nil
-      return true
+      didSave = true
     } catch {
       lastUserFacingError = "训练已完成，但记录保存失败：\(error.localizedDescription)"
-      return false
+      didSave = false
     }
+    reminderScheduler.recordActivityCompletion(at: completionDate, settings: settings)
+    Task {
+      await reminderScheduler.reconcileDue(settings: settings, now: completionDate)
+    }
+    return didSave
   }
 
   func workoutDismissed() {
@@ -178,6 +219,7 @@ final class AppModel: ObservableObject {
   func clearHistory() {
     do {
       try historyStore.clear()
+      try activityHistoryStore.clear()
       lastUserFacingError = nil
     } catch {
       lastUserFacingError = "无法清除历史记录：\(error.localizedDescription)"
@@ -189,6 +231,14 @@ final class AppModel: ObservableObject {
   }
 
   func dailyCompletions(days: Int, endingAt date: Date = Date()) -> [DailyCompletion] {
+    dailyCompletions(days: days, activity: nil, endingAt: date)
+  }
+
+  func dailyCompletions(
+    days: Int,
+    activity: WellnessActivityKind?,
+    endingAt date: Date = Date()
+  ) -> [DailyCompletion] {
     guard days > 0 else { return [] }
     let calendar = Calendar.current
     let endDay = calendar.startOfDay(for: date)
@@ -198,7 +248,7 @@ final class AppModel: ObservableObject {
       }
       return DailyCompletion(
         date: day,
-        count: completedSessions(on: day, calendar: calendar).count
+        count: completionCount(on: day, activity: activity, calendar: calendar)
       )
     }
   }
@@ -212,13 +262,13 @@ final class AppModel: ObservableObject {
     var cursor = calendar.startOfDay(for: Date())
     var count = 0
 
-    if completedSessions(on: cursor, calendar: calendar).isEmpty,
+    if completionCount(on: cursor, activity: nil, calendar: calendar) == 0,
       let yesterday = calendar.date(byAdding: .day, value: -1, to: cursor)
     {
       cursor = yesterday
     }
 
-    while !completedSessions(on: cursor, calendar: calendar).isEmpty {
+    while completionCount(on: cursor, activity: nil, calendar: calendar) > 0 {
       count += 1
       guard let previous = calendar.date(byAdding: .day, value: -1, to: cursor) else {
         break
@@ -228,12 +278,78 @@ final class AppModel: ObservableObject {
     return count
   }
 
+  func todayCount(for activity: WellnessActivityKind) -> Int {
+    completionCount(on: Date(), activity: activity, calendar: .current)
+  }
+
+  func recentWellnessItems(limit: Int = 8) -> [WellnessHistoryItem] {
+    let workouts: [WellnessHistoryItem] = historyStore.recentCompleted(limit: limit).compactMap {
+      session in
+      guard let completedAt = session.endedAt else { return nil }
+      let duration = AppFormatters.duration(
+        seconds: completedAt.timeIntervalSince(session.startedAt)
+      )
+      return WellnessHistoryItem(
+        id: "workout-\(session.id.uuidString)",
+        activity: .neck,
+        completedAt: completedAt,
+        detail: "用时 \(duration)"
+      )
+    }
+    let quick = activityHistoryStore.recent(limit: limit).map { completion in
+      WellnessHistoryItem(
+        id: "activity-\(completion.id.uuidString)",
+        activity: completion.activity,
+        completedAt: completion.completedAt,
+        detail: completion.activity == .water ? "按自己的节奏补水" : "完成 2 分钟活动"
+      )
+    }
+    return Array((workouts + quick).sorted { $0.completedAt > $1.completedAt }.prefix(limit))
+  }
+
   private func completedSessions(
     on day: Date,
     calendar: Calendar = .current
   ) -> [WorkoutSession] {
     historyStore.sessions(on: day, calendar: calendar).filter {
       $0.status == .completed
+    }
+  }
+
+  private func completionCount(
+    on day: Date,
+    activity: WellnessActivityKind?,
+    calendar: Calendar
+  ) -> Int {
+    switch activity {
+    case .neck:
+      return completedSessions(on: day, calendar: calendar).count
+    case .stand, .water:
+      return activityHistoryStore.completions(on: day, calendar: calendar)
+        .filter { $0.activity == activity }
+        .count
+    case nil:
+      return completedSessions(on: day, calendar: calendar).count
+        + activityHistoryStore.completions(on: day, calendar: calendar).count
+    }
+  }
+
+  private func saveQuickCompletion(
+    activity: WellnessActivityKind,
+    at completionDate: Date,
+    sourceID: String?
+  ) {
+    do {
+      try activityHistoryStore.append(
+        ActivityCompletion(
+          activity: activity,
+          completedAt: completionDate,
+          sourceID: sourceID
+        )
+      )
+      lastUserFacingError = nil
+    } catch {
+      lastUserFacingError = "活动已完成，但记录保存失败：\(error.localizedDescription)"
     }
   }
 }
