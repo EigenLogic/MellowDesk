@@ -1,0 +1,116 @@
+<?xml version="1.0" standalone="yes"?><!-- sparkle-sign-warning:
+IMPORTANT: This file was signed by Sparkle. Any modifications to this file requires re-signing this file with generate_appcast or sign_update! The signed signature will be embedded at the end of this file.
+--><rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>MellowDesk</title>
+        <item>
+            <title>0.1.0</title>
+            <pubDate>Fri, 14 Aug 2026 15:17:47 +0800</pubDate>
+            <sparkle:version>4</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# MellowDesk v0.1.0-beta.4 / 小桌伴 v0.1.0-beta.4
+
+Release date / 发布日期: 2026-08-14
+
+Status / 状态: public beta / 公开测试版
+
+## Overview / 概览
+
+Beta.4 expands MellowDesk from a single neck routine into one coordinated work-break plan. By default, it reminds you every 50 minutes and rotates through a two-minute stand-up break, hydration with light movement, and the existing three-minute neck-and-shoulder routine. Only one unresolved reminder is shown at a time.
+
+Beta.4 将小桌伴从单一颈肩训练扩展为一条协调的工作间歇计划。默认每 50 分钟提醒一项，按“起身活动 2 分钟 → 起身补水并活动 → 颈肩微运动 3 分钟”轮换；同一时间只保留一个待处理提醒。
+
+## Added / 新增
+
+- One shared reminder rhythm for stand-up movement, hydration, and the neck-and-shoulder routine. Snoozing or closing keeps the current activity; completion advances to the next one.
+- A guided two-minute movement window and lightweight hydration check-ins. MellowDesk does not prescribe or measure a fixed water volume.
+- Per-activity menu-bar status, persistent reminder cards, notification copy, and settings.
+- Local stand-up and hydration completion history, combined with existing neck history in daily counts, 7/30-day totals, streaks, filtered trends, and recent completions.
+- Sparkle 2.9.5 software updates, enabled by default. MellowDesk checks the signed appcast daily, downloads a newer GitHub Release ZIP in the background, verifies EdDSA and Developer ID signatures, then offers **Install and Relaunch** or **Later**. Later installs the ready update when MellowDesk quits, without opening a browser.
+- 一条统一的起身、补水和颈肩提醒节奏。推迟或关闭不会换项，只有完成后才推进。
+- 两分钟起身活动引导和轻量喝水打卡；不规定也不测量饮水量。
+- 菜单栏、持久提醒卡、系统通知和设置现在都会显示当前活动。
+- 起身和喝水完成时间保存在本机，并与原有颈肩记录统一展示今日次数、近 7/30 天统计、连续记录、分类趋势和近期完成。
+- 内置 Sparkle 2.9.5 自动更新并默认开启：每天检查签名 appcast，在后台下载新版本，经 EdDSA 和 Developer ID 验证后提供“安装并重启”或“稍后”；选择“稍后”会在退出小桌伴时安装，全程不打开浏览器。
+
+## Improved completion history / 完成记录改版
+
+The completion window now keeps its core content visible at both the default and minimum supported window sizes. Today's three activity counts, summary metrics, a filterable 7/30-day chart, and recent completions are arranged in one compact dashboard without page-level scrolling.
+
+完成记录页重新整理为紧凑的一屏布局，在默认和最小支持窗口下都能看到核心内容：今日三类活动、近 7/30 天汇总、连续记录、可按活动筛选的趋势图和近期完成记录，不再依赖整页滚动。
+
+## Camera permission reliability / 摄像头权限可靠性
+
+- Source and CI builds now use `cn.eigenlogic.mellowdesk.dev`; the signed public release remains `cn.eigenlogic.mellowdesk`. Development data and macOS privacy permissions therefore no longer share an identity with the official app.
+- Camera authorization status, request, outcome, and stable failure reason are available in macOS unified logs. Frames and head-pose samples are not logged.
+- 源码和 CI 开发包改用 `cn.eigenlogic.mellowdesk.dev`；正式签名版继续使用 `cn.eigenlogic.mellowdesk`，避免开发包与正式版共用 macOS TCC 隐私身份和本地数据。
+- 新增摄像头授权诊断日志，但不会记录画面或头部姿态数据。
+
+## On-demand pelvic-floor follow-along / 按需提肛跟练
+
+This build adds a two-minute pelvic-floor pacing cue, enabled by default and available directly from the menu bar. It can be disabled in Settings. It does not use a camera or sensor, measure movement, join the reminder rotation, or write completion history. It is a follow-along timing cue, not treatment or an individualized recommendation.
+
+本版新增两分钟提肛节奏跟练，默认开启，可从菜单栏直接开始，也可在设置中关闭。它不用摄像头或传感器、不判断动作、不进入提醒轮换，也不写入完成记录；它只是跟练节奏提示，不是治疗或个性化建议。
+
+## Compatibility and privacy / 兼容性与隐私
+
+Existing beta reminder state and neck-workout history remain readable. Stand-up and hydration history stores only activity type, completion time, a random record ID, and an optional local deduplication ID. Network access is limited to the signed appcast on raw GitHub and its referenced MellowDesk GitHub Release ZIP. Sparkle system profiling is disabled; no account, settings, history, health, camera, analytics, advertising, telemetry, or system-profile payload is sent. There are still no accounts, cloud sync, analytics, advertising, or camera uploads.
+
+原有 Beta 提醒状态和颈肩历史可继续读取。起身与喝水记录只保存活动类型、完成时间、随机记录 ID 和可选的本地去重 ID。网络仅用于读取 raw GitHub 上的签名 appcast，并下载其中指向的小桌伴 GitHub Release ZIP。Sparkle 系统画像已关闭，不发送账号、设置、历史、健康、摄像头、分析、广告、遥测或系统画像 payload；App 仍然没有账号、云同步、分析、广告或摄像头上传。
+
+## Download and install / 下载与安装
+
+The GitHub Release provides a universal `arm64 + x86_64` macOS archive and its SHA-256 checksum. The app is signed by EigenLogic with Developer ID, uses Hardened Runtime, is notarized by Apple, and includes a stapled notarization ticket.
+
+GitHub Release 提供 `arm64 + x86_64` 通用 macOS 压缩包及 SHA-256 校验文件。App 使用 EigenLogic Developer ID 签名、启用 Hardened Runtime、通过 Apple 公证，并附带 stapled ticket。
+
+Unzip the archive, move `MellowDesk.app` to `/Applications`, and open it. Existing release settings and history remain in place.
+
+解压后将 `MellowDesk.app` 移入“应用程序”文件夹并打开即可；正式版已有设置和历史会继续保留。
+
+Beta.4 is the first Sparkle-enabled seed, so beta.3 cannot update itself. This is the final release that requires a manual download and installation from beta.3. Once beta.4 is installed, subsequent releases can download in the background and install from the in-app prompt without visiting GitHub.
+
+Beta.4 是首个接入 Sparkle 的种子版本，beta.3 尚不能自我更新，因此这是从 beta.3 最后一次需要手动下载安装的版本。安装 beta.4 后，后续版本可在后台下载并从 App 内完成安装，无需访问 GitHub 网页。
+
+## Validation / 验证
+
+- 80 deterministic tests pass on Apple Silicon and Intel CI runners.
+- CodeQL passes on the release source SHA.
+- The downloaded release asset is verified for SHA-256, strict code signature, stapled notarization ticket, Gatekeeper acceptance, and both executable architectures.
+- The Sparkle framework, Installer service, sandbox entitlements, signed-feed settings, and update-archive signature are checked as release gates. The real old-build-to-new-build updater gate starts with the release after this seed.
+- 80 项确定性自动测试在 Apple Silicon 和 Intel CI 上通过。
+- 发布源码 SHA 的 CodeQL 检查通过。
+- 从 GitHub 下载的发布资产会复核 SHA-256、严格代码签名、stapled 公证票据、Gatekeeper 接受状态和双架构。
+- Sparkle framework、Installer 服务、沙盒 entitlement、签名 feed 配置和更新压缩包签名均作为发布门禁；真实旧 build → 新 build 更新验收从本种子版的下一版本开始执行。
+
+## Known limitations / 已知限制
+
+- The app UI is Chinese.
+- Camera counting is approximate and depends on lighting, framing, camera model, and individual movement.
+- Manual counting may be needed when the camera is unavailable or recognition is unreliable.
+- The routines are general work-break guidance, not diagnosis, treatment, or individualized rehabilitation.
+- App 界面仍为中文。
+- 摄像头计次是近似识别，会受光线、取景、摄像头型号和个人动作影响。
+- 摄像头不可用或识别不稳定时，可能需要改用手动计次。
+- 所有练习都只是一般工作间歇引导，不提供诊断、治疗或个体化康复方案。
+
+## Privacy and feedback / 隐私与反馈
+
+Read [PRIVACY.md](../../PRIVACY.md) for the complete local-data inventory and deletion controls. Before reporting a bug, read [CONTRIBUTING.md](../../CONTRIBUTING.md). Do not attach faces, camera recordings, raw pose data, or personal history to a public issue. Report vulnerabilities privately using [SECURITY.md](../../SECURITY.md).
+
+完整的本地数据清单和删除方式见 [PRIVACY.md](../../PRIVACY.md)。提交问题前请阅读 [CONTRIBUTING.md](../../CONTRIBUTING.md)，不要在公开 Issue 附上人脸、摄像头录像、原始姿态数据或个人历史；安全问题请按 [SECURITY.md](../../SECURITY.md) 私下报告。
+
+## License / 许可证
+
+MellowDesk is available under the [Apache License 2.0](../../LICENSE). See [NOTICE](../../NOTICE).
+
+MellowDesk 使用 [Apache License 2.0](../../LICENSE)，归属信息见 [NOTICE](../../NOTICE)。
+]]></description>
+            <enclosure url="https://github.com/EigenLogic/MellowDesk/releases/download/v0.1.0-beta.4/MellowDesk-0.1.0-beta.4-macOS-universal.zip" length="2876986" type="application/octet-stream" sparkle:edSignature="TnNoc8Mhu1bksC2Shq9GhSrGlWuvyvvVetsNmHCfBvxlp4v30DaQhg/efZ3Deumiv7EBZNgKkEg6U4FyDmfxDg=="></enclosure>
+        </item>
+    </channel>
+</rss><!-- sparkle-signatures:
+edSignature: YqaDlSCL1sXkdQbtkWaqy5DfCbtRY30pxsN16sdcEnR7QTwXQjyoRDSKjP5AEOU1KrYavBRLT7+/ir4oh9xuBg==
+length: 10570
+-->
