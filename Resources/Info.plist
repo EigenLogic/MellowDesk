@@ -21,11 +21,13 @@
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
-    <string>3</string>
+    <string>4</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
+    <key>MellowDeskReleaseVersion</key>
+    <string>0.1.0-beta.4</string>
     <key>NSCameraUsageDescription</key>
     <string>用于在颈部微运动过程中实时识别头部方向。摄像头画面仅在本机处理，不会保存或上传。</string>
     <key>NSHighResolutionCapable</key>
@@ -34,5 +36,25 @@
     <string>NSApplication</string>
     <key>NSHumanReadableCopyright</key>
     <string>Copyright © 2026 EigenLogic and MellowDesk contributors</string>
+    <key>SUFeedURL</key>
+    <string>https://raw.githubusercontent.com/EigenLogic/MellowDesk/main/appcast.xml</string>
+    <key>SUPublicEDKey</key>
+    <string>D39NmgKuV3AeyCi8vyddX18UIDfr3Tq4yEDC3S+jlEc=</string>
+    <key>SUEnableAutomaticChecks</key>
+    <true/>
+    <key>SUScheduledCheckInterval</key>
+    <integer>86400</integer>
+    <key>SUAutomaticallyUpdate</key>
+    <true/>
+    <key>SUAllowsAutomaticUpdates</key>
+    <true/>
+    <key>SUEnableInstallerLauncherService</key>
+    <true/>
+    <key>SUVerifyUpdateBeforeExtraction</key>
+    <true/>
+    <key>SUEnableSystemProfiling</key>
+    <false/>
+    <key>SURequireSignedFeed</key>
+    <true/>
 </dict>
 </plist>

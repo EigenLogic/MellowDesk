@@ -45,3 +45,38 @@ assert_plist_value() {
 assert_plist_value CFBundleIdentifier "cn.eigenlogic.mellowdesk.dev"
 assert_plist_value CFBundleDisplayName "小桌伴 Dev"
 assert_plist_value CFBundleName "MellowDesk Dev"
+assert_plist_value CFBundleShortVersionString "0.1.0"
+assert_plist_value CFBundleVersion "4"
+assert_plist_value MellowDeskReleaseVersion "0.1.0-beta.4"
+assert_plist_value SUFeedURL "https://raw.githubusercontent.com/EigenLogic/MellowDesk/main/appcast.xml"
+assert_plist_value SUPublicEDKey "D39NmgKuV3AeyCi8vyddX18UIDfr3Tq4yEDC3S+jlEc="
+assert_plist_value SUEnableAutomaticChecks "true"
+assert_plist_value SUAutomaticallyUpdate "true"
+assert_plist_value SUAllowsAutomaticUpdates "true"
+assert_plist_value SUEnableInstallerLauncherService "true"
+assert_plist_value SUEnableSystemProfiling "false"
+assert_plist_value SUVerifyUpdateBeforeExtraction "true"
+assert_plist_value SURequireSignedFeed "true"
+assert_plist_value SUScheduledCheckInterval "86400"
+
+APP_DIR="${PROJECT_DIR}/build/MellowDesk.app"
+APP_EXECUTABLE="${APP_DIR}/Contents/MacOS/MellowDesk"
+SPARKLE_FRAMEWORK="${APP_DIR}/Contents/Frameworks/Sparkle.framework"
+APP_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "${APP_DIR}" 2>/dev/null)"
+
+print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk.dev-spks'
+print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk.dev-spki'
+if print -r -- "${APP_ENTITLEMENTS}" | rg -q '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
+  print -u2 "开发构建 entitlements 仍含未展开 token。"
+  exit 1
+fi
+
+[[ -L "${SPARKLE_FRAMEWORK}/Versions/Current" ]]
+/usr/bin/codesign --verify --strict --verbose=2 \
+  "${SPARKLE_FRAMEWORK}/Versions/B/XPCServices/Installer.xpc" \
+  "${SPARKLE_FRAMEWORK}/Versions/B/XPCServices/Downloader.xpc" \
+  "${SPARKLE_FRAMEWORK}/Versions/B/Updater.app" \
+  "${SPARKLE_FRAMEWORK}"
+/usr/bin/otool -L "${APP_EXECUTABLE}" | rg -q '@rpath/Sparkle.framework/'
+/usr/bin/otool -l "${APP_EXECUTABLE}" | rg -q '@executable_path/../Frameworks'
+rg -q '"version"[[:space:]]*:[[:space:]]*"2\.9\.5"' Package.resolved

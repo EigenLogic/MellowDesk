@@ -8,8 +8,8 @@
 - 姿态：Vision `VNDetectFaceRectanglesRequest` revision 3，约 12Hz。
 - 动作判断：纯 Swift 校准、median + EMA 滤波和迟滞状态机。
 - 存储：UserDefaults 设置 + Application Support 原子 JSON 历史。
-- 系统服务：UserNotifications、SMAppService。
-- 分发：Swift Package 构建可执行文件，脚本组装并签名 `.app`。
+- 系统服务：UserNotifications、SMAppService、Sparkle 2.9.5（软件更新）。
+- 分发：Swift Package 构建可执行文件和 Sparkle framework，脚本组装、嵌套签名并公证 `.app`。
 
 ## 2. 架构与数据流
 
@@ -32,6 +32,11 @@ flowchart LR
   Plan["WellnessPlan rotation"] --> Reminder
   Notification --> Quick
   Notification --> Workout
+  Appcast["signed appcast on raw GitHub"] --> Sparkle["Sparkle 2.9.5 updater"]
+  Sparkle --> Archive["GitHub Release ZIP"]
+  Archive --> Verify["EdDSA + Developer ID verification"]
+  Verify --> Ready["Install and Relaunch / Later"]
+  Ready --> Install["Installer.xpc"]
 ```
 
 模块 ownership：
@@ -43,7 +48,7 @@ MellowDeskCore
 
 MellowDesk
   Camera       摄像头生命周期与 Vision 推理
-  Services     设置、历史、通知、登录启动
+  Services     设置、历史、通知、登录启动、Sparkle 生命周期
   ViewModels   训练编排、降级、结果保存
   App          菜单栏生命周期与窗口协调
   Views        训练、记录、设置、动画
@@ -130,18 +135,30 @@ ActivityCompletion
 
 历史不单独保存用时；展示时由 `endedAt - startedAt` 计算。
 
-## 8. 权限与安全
+## 8. 自动更新
+
+Swift Package Manager 将 Sparkle 固定在 2.9.5。`SparkleUpdateService` 在 App 生命周期内持有一个 `SPUStandardUpdaterController`：启动后由 Sparkle 读取 `SUFeedURL` 指向的 `https://raw.githubusercontent.com/EigenLogic/MellowDesk/main/appcast.xml`，并负责计划、版本比较、下载、验证和安装。设置中的“自动下载并安装更新”直接读写 Sparkle 的 `automaticallyChecksForUpdates` 与 `automaticallyDownloadsUpdates`；相关偏好和更新器状态由 Sparkle 管理在标准 UserDefaults 中，`AppSettings` 不再复制一套更新字段。
+
+正式包启用 `SUEnableAutomaticChecks`、`SUAutomaticallyUpdate` 和 `SUAllowsAutomaticUpdates`，`SUScheduledCheckInterval = 86400`，所以默认每天自动检查并在后台下载；“现在检查”直接调用 Sparkle 的手动检查入口。`SUEnableSystemProfiling = false`，不会附带系统画像。Beta.4 是首个包含 Sparkle 的种子版本，因此 beta.3 到 beta.4 仍需最后一次手动安装；安装 beta.4 后，后续版本进入这条自动更新链路。
+
+appcast 和发布 ZIP 使用 EdDSA 签名，下载所得 App 还必须通过 Developer ID 代码签名验证。`SURequireSignedFeed` 与 `SUVerifyUpdateBeforeExtraction` 均开启。验证完成后，Sparkle 的 `willInstallUpdateOnQuit` 回调把即时安装闭包交给小桌伴：界面显示“安装并重启”与“稍后”；前者立即退出、替换并重启，后者保留已验证更新并在 App 退出时安装。整个正常流程不构造或打开 GitHub 网页。
+
+## 9. 权限与安全
 
 - `LSUIElement = true`：菜单栏常驻，不显示 Dock 图标。
 - `NSCameraUsageDescription`：解释本地实时头部方向识别。
 - `com.apple.security.app-sandbox = true`。
 - `com.apple.security.device.camera = true`。
-- 不声明麦克风或网络 entitlement。
+- `com.apple.security.network.client = true`，只供 Sparkle 读取 raw GitHub appcast 和下载 GitHub Release ZIP。
+- 沙盒 App 启用 `SUEnableInstallerLauncherService` 并随 Sparkle framework 打包 `Installer.xpc`，让已验证更新可在沙盒外完成替换。
+- 主 App 的临时 Mach lookup exception 在构建时展开为 `<bundle-id>-spks` 和 `<bundle-id>-spki`；开发包与正式包分别使用自己的 bundle identifier，不保留模板 token。
+- 不声明麦克风 entitlement。
 - `PrivacyInfo.xcprivacy` 声明 UserDefaults required-reason API；无跟踪、无收集数据类型。
 - 源码和 CI 开发包使用 `cn.eigenlogic.mellowdesk.dev`；Developer ID 签名并公证的正式 Release 使用 `cn.eigenlogic.mellowdesk`。
+- `Sparkle.framework` 保留原始 symlink 与 `@rpath` 布局；Installer 等嵌套代码先签名，再签 framework 和主 App。公开包所有嵌套代码都使用同一 Developer ID Team、Hardened Runtime 和安全时间戳，并随主 App 完成 Apple 公证。
 - 摄像头授权状态、请求和结果写入 macOS 统一日志，仅用于诊断权限流程，不记录画面或头部姿态数据。
 
-## 9. 测试
+## 10. 测试
 
 `MellowDeskCoreTests` 用合成时间序列覆盖：
 
@@ -156,6 +173,7 @@ ActivityCompletion
 - 工作日前后、下班后、周末和 snooze 提醒边界。
 - 三项轮换、旧版提醒迁移、推迟保槽、完成推进、关闭不推进和重启持久化。
 - 起身/喝水轻量历史的原子写入、幂等去重、日历边界和损坏恢复。
+- Sparkle 配置、framework 布局、沙盒 entitlement、嵌套签名、公证和 appcast 资产签名由构建及发布门禁检查。
 
 自动检查入口：
 
@@ -165,4 +183,4 @@ ActivityCompletion
 
 ### 本轮用户测试门槛
 
-自动测试通过后，还必须按 [真人验收清单](TEST_CHECKLIST.md) 在至少一台 MacBook 前置摄像头上验证三轴符号、相对个人中立位的保守阈值、权限拒绝、摄像头占用、关闭后释放和一组计数误差。未完成该清单时，不将本轮用户测试标记为通过。
+自动测试通过后，还必须按 [真人验收清单](TEST_CHECKLIST.md) 在至少一台真实 Mac 上验证旧 build 到新 build 的后台下载、安装重启、设置与历史保留，并在 MacBook 前置摄像头上验证三轴符号、相对个人中立位的保守阈值、权限拒绝、摄像头占用、关闭后释放和一组计数误差。未完成该清单时，不将本轮用户测试标记为通过。

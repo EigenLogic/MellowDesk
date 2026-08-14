@@ -11,6 +11,12 @@ let package = Package(
         .library(name: "MellowDeskCore", targets: ["MellowDeskCore"]),
         .executable(name: "MellowDesk", targets: ["MellowDesk"])
     ],
+    dependencies: [
+        .package(
+            url: "https://github.com/sparkle-project/Sparkle.git",
+            exact: "2.9.5"
+        )
+    ],
     targets: [
         .target(
             name: "MellowDeskCore",
@@ -18,7 +24,10 @@ let package = Package(
         ),
         .executableTarget(
             name: "MellowDesk",
-            dependencies: ["MellowDeskCore"],
+            dependencies: [
+                "MellowDeskCore",
+                .product(name: "Sparkle", package: "Sparkle")
+            ],
             path: "Sources/MellowDesk"
         ),
         .testTarget(

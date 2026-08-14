@@ -1,8 +1,8 @@
-# NeckEase Exercise Content / 颈间动作内容
+# MellowDesk Exercise Content / 小桌伴动作内容
 
 Routine version / 内容版本: `neck-ease-v1.0`
 
-App release / App 版本: `v0.1.0-beta.3`
+App release / App 版本: `v0.1.0-beta.4`
 
 ## Purpose / 用途
 
@@ -58,13 +58,13 @@ These sources support staying active and studying exercise interventions, but th
 
 这些资料支持保持活动，并讨论办公人群运动干预，但不能证明本产品这套约三分钟动作可以治疗颈痛，也不能证明它对每个人效果相同。小桌伴不作此类宣称。仓库中的文案和插图必须保持原创；引用链接不代表可以复制第三方原文或图片。
 
-## Hidden extra: pelvic-floor follow-along / 隐藏练习：提肛跟练
+## Pelvic-floor follow-along / 提肛跟练
 
 Routine version / 内容版本: `pelvic-floor-v1.0`
 
-**English:** A two-minute paced pelvic-floor (Kegel) follow-along, hidden and off by default. It is revealed by tapping the footer line at the bottom of Settings five times, then enabling the toggle. It is a visual metronome only: no camera, no sensor, no measurement, no completion record, and it never joins the reminder rotation. Twelve bars arranged as a clock face contract together toward the center while lifting, stay in while holding, and return outward while releasing; a dashed circle marks the relaxed position.
+**English:** A two-minute paced pelvic-floor (Kegel) follow-along, enabled by default and available directly from the menu bar. It can be disabled in Settings. It is a visual pacing guide only: no camera, no sensor, no measurement, no completion record, and it never joins the reminder rotation. Twelve bars arranged as a clock face contract together toward the center while lifting, stay in while holding, and return outward while releasing; a dashed circle marks the relaxed position.
 
-**中文：**一段两分钟的提肛跟练，默认隐藏且关闭；在设置页底部连点五次页脚文字后可见，再打开开关启用。它只是节拍提示：不用摄像头、不做识别、不计次判定、不写入完成记录，也不参与提醒轮换。12 根竖线排成表盘形状：收提时一起向圆心收缩，保持时停在内侧，放松时还原到外侧；虚线圆环标出放松位置。
+**中文：**一段两分钟的提肛跟练，默认开启，可从菜单栏直接开始，也可在设置中关闭。它只是节奏引导：不用摄像头、不使用传感器、不做识别、不计次判定、不写入完成记录，也不参与提醒轮换。12 根竖线排成表盘形状：收提时一起向圆心收缩，保持时停在内侧，放松时还原到外侧；虚线圆环标出放松位置。
 
 | Segment | UI name | Tempo | Product dose |
 |---|---|---|---:|

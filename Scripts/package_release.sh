@@ -5,9 +5,9 @@ SCRIPT_DIR="${0:A:h}"
 PROJECT_DIR="${SCRIPT_DIR:h}"
 DIST_DIR="${PROJECT_DIR}/dist"
 APP_DIR="${PROJECT_DIR}/build/MellowDesk.app"
-RELEASE_VERSION="${RELEASE_VERSION:-0.1.0-beta.3}"
+RELEASE_VERSION="${RELEASE_VERSION:-0.1.0-beta.4}"
 APP_VERSION="${APP_VERSION:-0.1.0}"
-BUILD_NUMBER="${BUILD_NUMBER:-3}"
+BUILD_NUMBER="${BUILD_NUMBER:-4}"
 CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY:?Set CODE_SIGN_IDENTITY to a Developer ID Application identity}"
 NOTARY_PROFILE="${NOTARY_PROFILE:-}"
 ALLOW_UNNOTARIZED="${ALLOW_UNNOTARIZED:-0}"
@@ -32,6 +32,7 @@ CODE_SIGN_IDENTITY="${CODE_SIGN_IDENTITY}" \
 UNIVERSAL_BUILD=1 \
 APP_VERSION="${APP_VERSION}" \
 BUILD_NUMBER="${BUILD_NUMBER}" \
+RELEASE_VERSION="${RELEASE_VERSION}" \
 BUNDLE_IDENTIFIER="cn.eigenlogic.mellowdesk" \
 APP_DISPLAY_NAME="小桌伴" \
 BUNDLE_NAME="MellowDesk" \
@@ -52,6 +53,17 @@ assert_plist_value() {
 assert_plist_value CFBundleIdentifier "cn.eigenlogic.mellowdesk"
 assert_plist_value CFBundleDisplayName "小桌伴"
 assert_plist_value CFBundleName "MellowDesk"
+assert_plist_value CFBundleShortVersionString "${APP_VERSION}"
+assert_plist_value CFBundleVersion "${BUILD_NUMBER}"
+assert_plist_value MellowDeskReleaseVersion "${RELEASE_VERSION}"
+assert_plist_value SUFeedURL "https://raw.githubusercontent.com/EigenLogic/MellowDesk/main/appcast.xml"
+assert_plist_value SUPublicEDKey "D39NmgKuV3AeyCi8vyddX18UIDfr3Tq4yEDC3S+jlEc="
+assert_plist_value SUEnableAutomaticChecks "true"
+assert_plist_value SUAutomaticallyUpdate "true"
+assert_plist_value SUAllowsAutomaticUpdates "true"
+assert_plist_value SUEnableInstallerLauncherService "true"
+assert_plist_value SUVerifyUpdateBeforeExtraction "true"
+assert_plist_value SURequireSignedFeed "true"
 
 /usr/bin/codesign --verify --deep --strict --verbose=2 "${APP_DIR}"
 SIGNATURE_DETAILS="$(/usr/bin/codesign -d --verbose=4 "${APP_DIR}" 2>&1)"
@@ -59,10 +71,62 @@ if [[ "${SIGNATURE_DETAILS}" != *"Authority=Developer ID Application:"* ]]; then
     print -u2 "App 未使用 Developer ID Application 签名。"
     exit 1
 fi
+if [[ "${SIGNATURE_DETAILS}" != *"Timestamp="* ]]; then
+    print -u2 "App 签名缺少安全时间戳。"
+    exit 1
+fi
+TEAM_IDENTIFIER="$(print -r -- "${SIGNATURE_DETAILS}" | /usr/bin/sed -n 's/^TeamIdentifier=//p')"
+if [[ -z "${TEAM_IDENTIFIER}" ]]; then
+    print -u2 "无法读取 App 的签名 TeamIdentifier。"
+    exit 1
+fi
+
+assert_nested_signature() {
+    local nested_path="$1"
+    local nested_details
+    nested_details="$(/usr/bin/codesign -d --verbose=4 "${nested_path}" 2>&1)"
+    if [[ "${nested_details}" != *"Authority=Developer ID Application:"* ]]; then
+        print -u2 "嵌套代码未使用 Developer ID Application 签名：${nested_path}"
+        exit 1
+    fi
+    if [[ "${nested_details}" != *"TeamIdentifier=${TEAM_IDENTIFIER}"* ]]; then
+        print -u2 "嵌套代码 TeamIdentifier 不一致：${nested_path}"
+        exit 1
+    fi
+    if ! print -r -- "${nested_details}" | rg -q 'flags=.*runtime'; then
+        print -u2 "嵌套代码未启用 Hardened Runtime：${nested_path}"
+        exit 1
+    fi
+    if [[ "${nested_details}" != *"Timestamp="* ]]; then
+        print -u2 "嵌套代码签名缺少安全时间戳：${nested_path}"
+        exit 1
+    fi
+    /usr/bin/codesign --verify --strict --verbose=2 "${nested_path}"
+}
+
+SPARKLE_FRAMEWORK="${APP_DIR}/Contents/Frameworks/Sparkle.framework"
+assert_nested_signature "${SPARKLE_FRAMEWORK}/Versions/B/XPCServices/Installer.xpc"
+assert_nested_signature "${SPARKLE_FRAMEWORK}/Versions/B/XPCServices/Downloader.xpc"
+assert_nested_signature "${SPARKLE_FRAMEWORK}/Versions/B/Autoupdate"
+assert_nested_signature "${SPARKLE_FRAMEWORK}/Versions/B/Updater.app"
+assert_nested_signature "${SPARKLE_FRAMEWORK}"
+
+APP_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "${APP_DIR}" 2>/dev/null)"
+print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk-spks'
+print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk-spki'
+if print -r -- "${APP_ENTITLEMENTS}" | rg -q '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
+    print -u2 "发布 App entitlements 仍含未展开 token。"
+    exit 1
+fi
 
 if ! /usr/bin/lipo "${APP_DIR}/Contents/MacOS/MellowDesk" \
     -verify_arch arm64 x86_64; then
     print -u2 "发布二进制不是 arm64 + x86_64 universal build。"
+    exit 1
+fi
+if ! /usr/bin/lipo "${SPARKLE_FRAMEWORK}/Versions/B/Sparkle" \
+    -verify_arch arm64 x86_64; then
+    print -u2 "Sparkle.framework 不是 arm64 + x86_64 universal build。"
     exit 1
 fi
 

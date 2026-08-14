@@ -127,7 +127,7 @@ public struct PelvicFloorRoutineState: Equatable, Sendable {
   }
 }
 
-/// The hidden two-minute pelvic-floor (提肛) follow-along.
+/// The two-minute pelvic-floor (提肛) follow-along.
 ///
 /// The routine is a paced cue, not a measurement: no camera, no sensor, and no
 /// completion is recorded. Four half-minute segments change only the tempo.

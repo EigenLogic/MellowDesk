@@ -8,14 +8,14 @@ Please follow the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.
 
 - Search existing issues and pull requests before opening a duplicate.
 - For a large feature, data-model change, permission change, or new reminder module, discuss the scope in an issue first.
-- Keep the current beta honest: NeckEase is implemented; hydration, stand-up, lunch, and takeout reminders are roadmap items only.
+- Keep the current beta honest: stand-up movement, hydration, NeckEase, and the on-demand pelvic-floor follow-along are implemented; lunch and takeout reminders remain roadmap items. The pelvic-floor guide is enabled by default but stays outside reminder rotation and completion history.
 - Never use real faces, camera recordings, personal health information, or workout-history files as fixtures.
 
 ## Development requirements
 
 - macOS 13 or later.
 - A full Xcode installation compatible with Swift 5.10.
-- No third-party dependency is required for the current package.
+- Sparkle is pinned to version 2.9.5 through Swift Package Manager for signed in-app updates.
 
 Run the full local check:
 
@@ -23,7 +23,7 @@ Run the full local check:
 ./Scripts/check.sh
 ```
 
-The check validates property lists, runs swift-format when available, executes the 45 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
+The check validates property lists, runs swift-format when available, executes the 80 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
 
 For a faster development launch:
 
@@ -37,9 +37,10 @@ For a faster development launch:
 
 - Prefer a small, direct change over a speculative abstraction.
 - Keep camera ownership and Vision processing local to the app.
-- Do not add networking, analytics, telemetry, or persistent frame/pose storage without an explicit product decision and a privacy-policy update.
+- Do not add networking beyond the signed Sparkle appcast and release archive, analytics, telemetry, system profiling, or persistent frame/pose storage without an explicit product decision and a privacy-policy update.
 - Add deterministic tests for counting, calibration, scheduling, statistics, or face-selection behavior.
 - Camera lifecycle changes also require a real MacBook check using [docs/TEST_CHECKLIST.md](docs/TEST_CHECKLIST.md).
+- Update-framework, signing, feed, or installer changes require an old-build-to-new-build pass using [docs/TEST_CHECKLIST.md](docs/TEST_CHECKLIST.md).
 
 ### Exercise content
 
@@ -68,6 +69,7 @@ Do not add diagnosis, treatment promises, individualized rehabilitation claims, 
 - [ ] `./Scripts/check.sh` passes locally, or the exact blocker is documented.
 - [ ] New behavior has tests proportional to its risk.
 - [ ] Camera or notification behavior was manually checked when relevant.
+- [ ] Update download, signature verification, install/relaunch, and state preservation were manually checked when relevant.
 - [ ] Privacy, exercise-content, and bilingual README text are updated when relevant.
 - [ ] No face, video, raw pose sample, personal history, secret, or generated build artifact is committed.
 

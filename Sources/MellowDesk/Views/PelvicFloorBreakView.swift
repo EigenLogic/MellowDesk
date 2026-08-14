@@ -2,7 +2,7 @@ import Foundation
 import MellowDeskCore
 import SwiftUI
 
-/// The hidden two-minute pelvic-floor follow-along.
+/// The two-minute pelvic-floor follow-along.
 ///
 /// The clock is derived from `runningSince` plus the time banked in `accumulated`,
 /// so pausing never drifts. Nothing is measured or recorded; the ring is a cue.

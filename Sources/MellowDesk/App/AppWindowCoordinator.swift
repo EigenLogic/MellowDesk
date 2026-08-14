@@ -45,6 +45,9 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private weak var pendingReminderMovementBreakWindow: NSWindow?
   private var pendingInitialCameraAuthorizationWindow: NSWindow?
   private var initialCameraAuthorizationRestoreFallback: DispatchWorkItem?
+  private var updateReadyWindow: NSWindow?
+  private var updateReadyVersion: String?
+  private var updateReadyCloseObserver: WindowCloseObserver?
   private let logger = Logger(
     subsystem: "cn.eigenlogic.mellowdesk",
     category: "camera-focus"
@@ -117,6 +120,65 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     )
     settingsWindow = window
     present(window)
+  }
+
+  func showUpdateReadyPrompt(version: String) {
+    dismissStatusMenu()
+    setUpdateReadyStatusItem(true)
+    if let updateReadyWindow {
+      if updateReadyVersion == version {
+        present(updateReadyWindow)
+        return
+      }
+      updateReadyWindow.close()
+    }
+
+    let view = UpdateReadyView(
+      version: version,
+      onInstall: {
+        AppModel.shared.installReadyUpdate()
+      },
+      onLater: { [weak self] in
+        self?.dismissUpdateReadyPrompt()
+      }
+    )
+    let window = makeWindow(
+      title: "软件更新",
+      size: NSSize(width: 500, height: 240),
+      minimumSize: NSSize(width: 500, height: 240),
+      rootView: view
+    )
+    window.styleMask.remove(.miniaturizable)
+    window.styleMask.remove(.resizable)
+    window.setContentSize(NSSize(width: 500, height: 240))
+    window.minSize = NSSize(width: 500, height: 240)
+    window.maxSize = NSSize(width: 500, height: 240)
+    window.level = .floating
+    window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
+
+    let observer = WindowCloseObserver(
+      onClose: { [weak self, weak window] in
+        guard let self, let window, window === updateReadyWindow else { return }
+        updateReadyWindow = nil
+        updateReadyVersion = nil
+        updateReadyCloseObserver = nil
+      },
+      onMiniaturize: {},
+      onDeminiaturize: {}
+    )
+    window.delegate = observer
+    updateReadyWindow = window
+    updateReadyVersion = version
+    updateReadyCloseObserver = observer
+    present(window)
+  }
+
+  func dismissUpdateReadyPrompt() {
+    updateReadyWindow?.close()
+  }
+
+  func clearUpdateReadyStatus() {
+    setUpdateReadyStatusItem(false)
   }
 
   func showWorkout() {
@@ -463,7 +525,10 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     let view = MenuBarContentView()
       .environmentObject(AppModel.shared)
     presentStatusPopover(
-      contentSize: MenuBarContentView.contentSize(for: AppModel.shared.settings),
+      contentSize: MenuBarContentView.contentSize(
+        for: AppModel.shared.settings,
+        updateReady: AppModel.shared.readyUpdateVersion != nil
+      ),
       contentViewController: NSHostingController(rootView: view)
     )
   }
@@ -649,6 +714,16 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     } else {
       NSApp.activate(ignoringOtherApps: true)
     }
+  }
+
+  private func setUpdateReadyStatusItem(_ isReady: Bool) {
+    guard let button = statusItem?.button else { return }
+    let symbolName = isReady ? "arrow.down.circle.fill" : "leaf.fill"
+    let description = isReady ? "小桌伴更新已准备好" : "小桌伴"
+    let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: description)
+    image?.isTemplate = true
+    button.image = image
+    button.toolTip = description
   }
 
   private func clearInitialCameraAuthorizationRestore() {
