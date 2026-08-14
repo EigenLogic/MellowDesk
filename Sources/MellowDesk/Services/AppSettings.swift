@@ -19,6 +19,9 @@ struct AppSettings: Codable, Equatable, Sendable {
   var launchAtLoginEnabled: Bool
   var pauseUntil: Date?
   var dailyWorkoutGoal: Int
+  /// Hidden extra practice. It stays off until the user reveals it in Settings and
+  /// never joins the reminder rotation.
+  var pelvicFloorTrainingEnabled: Bool
 
   static let `default` = AppSettings()
 
@@ -30,7 +33,8 @@ struct AppSettings: Codable, Equatable, Sendable {
     soundEnabled: Bool = true,
     launchAtLoginEnabled: Bool = false,
     pauseUntil: Date? = nil,
-    dailyWorkoutGoal: Int = defaultDailyWorkoutGoal
+    dailyWorkoutGoal: Int = defaultDailyWorkoutGoal,
+    pelvicFloorTrainingEnabled: Bool = false
   ) {
     self.reminderIntervalMinutes = reminderIntervalMinutes
     self.workdayWeekdays = workdayWeekdays
@@ -40,6 +44,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     self.launchAtLoginEnabled = launchAtLoginEnabled
     self.pauseUntil = pauseUntil
     self.dailyWorkoutGoal = dailyWorkoutGoal
+    self.pelvicFloorTrainingEnabled = pelvicFloorTrainingEnabled
     normalize()
   }
 
@@ -85,6 +90,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     case launchAtLoginEnabled
     case pauseUntil
     case dailyWorkoutGoal
+    case pelvicFloorTrainingEnabled
   }
 
   init(from decoder: Decoder) throws {
@@ -121,6 +127,11 @@ struct AppSettings: Codable, Equatable, Sendable {
         Int.self,
         forKey: .dailyWorkoutGoal
       ) ?? Self.defaultDailyWorkoutGoal
+    pelvicFloorTrainingEnabled =
+      try container.decodeIfPresent(
+        Bool.self,
+        forKey: .pelvicFloorTrainingEnabled
+      ) ?? false
     normalize()
   }
 }

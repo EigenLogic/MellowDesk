@@ -3,6 +3,19 @@ import MellowDeskCore
 import SwiftUI
 
 struct MenuBarContentView: View {
+  /// The popover is sized by its host, so the extra hidden-practice row has to be
+  /// accounted for there as well.
+  static let baseContentSize = NSSize(width: 330, height: 354)
+  static let pelvicFloorRowHeight: CGFloat = 46
+
+  static func contentSize(for settings: AppSettings) -> NSSize {
+    NSSize(
+      width: baseContentSize.width,
+      height: baseContentSize.height
+        + (settings.pelvicFloorTrainingEnabled ? pelvicFloorRowHeight : 0)
+    )
+  }
+
   @EnvironmentObject private var appModel: AppModel
 
   var body: some View {
@@ -22,6 +35,18 @@ struct MenuBarContentView: View {
         .buttonStyle(.borderedProminent)
         .tint(AppTheme.accent)
         .controlSize(.large)
+
+        if appModel.settings.pelvicFloorTrainingEnabled {
+          Button {
+            appModel.startPelvicFloorBreak()
+          } label: {
+            Label("开始 2 分钟提肛跟练", systemImage: "slowmo")
+              .frame(maxWidth: .infinity)
+          }
+          .buttonStyle(.bordered)
+          .tint(AppTheme.accent)
+          .controlSize(.large)
+        }
 
         HStack(spacing: 8) {
           Button {
@@ -72,7 +97,7 @@ struct MenuBarContentView: View {
       }
       .padding(8)
     }
-    .frame(width: 330)
+    .frame(width: Self.baseContentSize.width)
     .background(AppTheme.warmBackground.opacity(0.55))
   }
 

@@ -145,6 +145,20 @@ final class AppModel: ObservableObject {
     AppWindowCoordinator.shared.showManualMovementBreak()
   }
 
+  /// The hidden pelvic-floor practice is an extra, not one of the three planned
+  /// activities: it stays out of the rotation and out of the local history. Starting
+  /// it only holds reminders back while the window is open.
+  func startPelvicFloorBreak() {
+    reminderScheduler.activityStarted()
+    AppWindowCoordinator.shared.showPelvicFloorBreak()
+  }
+
+  func pelvicFloorBreakDismissed() {
+    Task {
+      await reminderScheduler.activityDismissed(settings: settings)
+    }
+  }
+
   func completeQuickActivity(
     _ activity: WellnessActivityKind,
     sourceID: String?,
