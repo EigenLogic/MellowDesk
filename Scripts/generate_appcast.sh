@@ -53,9 +53,9 @@ fi
 
 GENERATED_APPCAST="${STAGING_DIR}/appcast.xml"
 /usr/bin/xmllint --noout "${GENERATED_APPCAST}"
-rg -q 'sparkle:edSignature=' "${GENERATED_APPCAST}"
-rg -Fq "${DOWNLOAD_URL_PREFIX}${ARCHIVE_NAME}" "${GENERATED_APPCAST}"
-rg -Fq "<sparkle:version>${BUILD_NUMBER}</sparkle:version>" "${GENERATED_APPCAST}"
+/usr/bin/grep -Fq 'sparkle:edSignature=' "${GENERATED_APPCAST}"
+/usr/bin/grep -Fq "${DOWNLOAD_URL_PREFIX}${ARCHIVE_NAME}" "${GENERATED_APPCAST}"
+/usr/bin/grep -Fq "<sparkle:version>${BUILD_NUMBER}</sparkle:version>" "${GENERATED_APPCAST}"
 
 /bin/cp "${GENERATED_APPCAST}" "${APPCAST_PATH}"
 print "已生成并签名：${APPCAST_PATH}"

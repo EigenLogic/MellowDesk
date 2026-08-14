@@ -64,9 +64,9 @@ APP_EXECUTABLE="${APP_DIR}/Contents/MacOS/MellowDesk"
 SPARKLE_FRAMEWORK="${APP_DIR}/Contents/Frameworks/Sparkle.framework"
 APP_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "${APP_DIR}" 2>/dev/null)"
 
-print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk.dev-spks'
-print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk.dev-spki'
-if print -r -- "${APP_ENTITLEMENTS}" | rg -q '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
+print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq 'cn.eigenlogic.mellowdesk.dev-spks'
+print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq 'cn.eigenlogic.mellowdesk.dev-spki'
+if print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
   print -u2 "开发构建 entitlements 仍含未展开 token。"
   exit 1
 fi
@@ -77,6 +77,6 @@ fi
   "${SPARKLE_FRAMEWORK}/Versions/B/XPCServices/Downloader.xpc" \
   "${SPARKLE_FRAMEWORK}/Versions/B/Updater.app" \
   "${SPARKLE_FRAMEWORK}"
-/usr/bin/otool -L "${APP_EXECUTABLE}" | rg -q '@rpath/Sparkle.framework/'
-/usr/bin/otool -l "${APP_EXECUTABLE}" | rg -q '@executable_path/../Frameworks'
-rg -q '"version"[[:space:]]*:[[:space:]]*"2\.9\.5"' Package.resolved
+/usr/bin/otool -L "${APP_EXECUTABLE}" | /usr/bin/grep -Fq '@rpath/Sparkle.framework/'
+/usr/bin/otool -l "${APP_EXECUTABLE}" | /usr/bin/grep -Fq '@executable_path/../Frameworks'
+/usr/bin/grep -Eq '"version"[[:space:]]*:[[:space:]]*"2\.9\.5"' Package.resolved

@@ -93,7 +93,7 @@ assert_nested_signature() {
         print -u2 "嵌套代码 TeamIdentifier 不一致：${nested_path}"
         exit 1
     fi
-    if ! print -r -- "${nested_details}" | rg -q 'flags=.*runtime'; then
+    if ! print -r -- "${nested_details}" | /usr/bin/grep -Eq 'flags=.*runtime'; then
         print -u2 "嵌套代码未启用 Hardened Runtime：${nested_path}"
         exit 1
     fi
@@ -112,9 +112,9 @@ assert_nested_signature "${SPARKLE_FRAMEWORK}/Versions/B/Updater.app"
 assert_nested_signature "${SPARKLE_FRAMEWORK}"
 
 APP_ENTITLEMENTS="$(/usr/bin/codesign -d --entitlements :- "${APP_DIR}" 2>/dev/null)"
-print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk-spks'
-print -r -- "${APP_ENTITLEMENTS}" | rg -q 'cn.eigenlogic.mellowdesk-spki'
-if print -r -- "${APP_ENTITLEMENTS}" | rg -q '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
+print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq 'cn.eigenlogic.mellowdesk-spks'
+print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq 'cn.eigenlogic.mellowdesk-spki'
+if print -r -- "${APP_ENTITLEMENTS}" | /usr/bin/grep -Fq '__MELLOWDESK_BUNDLE_IDENTIFIER__'; then
     print -u2 "发布 App entitlements 仍含未展开 token。"
     exit 1
 fi

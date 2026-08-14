@@ -72,7 +72,7 @@ fi
 /usr/libexec/PlistBuddy -c "Set :SUFeedURL ${SPARKLE_FEED_URL}" "${CONTENTS_DIR}/Info.plist"
 /usr/libexec/PlistBuddy -c "Set :SUPublicEDKey ${SPARKLE_PUBLIC_KEY}" "${CONTENTS_DIR}/Info.plist"
 
-if ! /usr/bin/otool -l "${CONTENTS_DIR}/MacOS/${APP_NAME}" | rg -q '@executable_path/../Frameworks'; then
+if ! /usr/bin/otool -l "${CONTENTS_DIR}/MacOS/${APP_NAME}" | /usr/bin/grep -Fq '@executable_path/../Frameworks'; then
     /usr/bin/install_name_tool -add_rpath '@executable_path/../Frameworks' "${CONTENTS_DIR}/MacOS/${APP_NAME}"
 fi
 
@@ -82,7 +82,7 @@ fi
     -c "Set :com.apple.security.temporary-exception.mach-lookup.global-name:1 ${BUNDLE_IDENTIFIER}-spki" \
     "${DERIVED_ENTITLEMENTS}"
 
-if rg -q '__MELLOWDESK_BUNDLE_IDENTIFIER__' "${DERIVED_ENTITLEMENTS}"; then
+if /usr/bin/grep -Fq '__MELLOWDESK_BUNDLE_IDENTIFIER__' "${DERIVED_ENTITLEMENTS}"; then
     print -u2 "派生 entitlements 仍包含未展开的 bundle identifier。"
     exit 1
 fi
@@ -114,6 +114,6 @@ fi
     "${APP_DIR}"
 
 /usr/bin/codesign --verify --deep --strict --verbose=2 "${APP_DIR}"
-/usr/bin/otool -L "${CONTENTS_DIR}/MacOS/${APP_NAME}" | rg -q '@rpath/Sparkle.framework/'
+/usr/bin/otool -L "${CONTENTS_DIR}/MacOS/${APP_NAME}" | /usr/bin/grep -Fq '@rpath/Sparkle.framework/'
 [[ -L "${CONTENTS_DIR}/Frameworks/Sparkle.framework/Versions/Current" ]]
 print "构建完成：${APP_DIR}"
