@@ -6,5 +6,12 @@
     <true/>
     <key>com.apple.security.device.camera</key>
     <true/>
+    <key>com.apple.security.network.client</key>
+    <true/>
+    <key>com.apple.security.temporary-exception.mach-lookup.global-name</key>
+    <array>
+        <string>__MELLOWDESK_BUNDLE_IDENTIFIER__-spks</string>
+        <string>__MELLOWDESK_BUNDLE_IDENTIFIER__-spki</string>
+    </array>
 </dict>
 </plist>

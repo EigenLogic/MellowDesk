@@ -10,6 +10,7 @@ struct AppSettings: Codable, Equatable, Sendable {
   static let defaultWorkStartMinutes = 9 * 60
   static let defaultWorkEndMinutes = 18 * 60
   static let defaultDailyWorkoutGoal = 3
+  static let defaultPelvicFloorTrainingEnabled = true
 
   var reminderIntervalMinutes: Int
   var workdayWeekdays: Set<Int>
@@ -19,8 +20,8 @@ struct AppSettings: Codable, Equatable, Sendable {
   var launchAtLoginEnabled: Bool
   var pauseUntil: Date?
   var dailyWorkoutGoal: Int
-  /// Hidden extra practice. It stays off until the user reveals it in Settings and
-  /// never joins the reminder rotation.
+  /// Optional pelvic-floor follow-along. It is available by default but never
+  /// joins the reminder rotation.
   var pelvicFloorTrainingEnabled: Bool
 
   static let `default` = AppSettings()
@@ -34,7 +35,7 @@ struct AppSettings: Codable, Equatable, Sendable {
     launchAtLoginEnabled: Bool = false,
     pauseUntil: Date? = nil,
     dailyWorkoutGoal: Int = defaultDailyWorkoutGoal,
-    pelvicFloorTrainingEnabled: Bool = false
+    pelvicFloorTrainingEnabled: Bool = defaultPelvicFloorTrainingEnabled
   ) {
     self.reminderIntervalMinutes = reminderIntervalMinutes
     self.workdayWeekdays = workdayWeekdays
@@ -131,7 +132,7 @@ struct AppSettings: Codable, Equatable, Sendable {
       try container.decodeIfPresent(
         Bool.self,
         forKey: .pelvicFloorTrainingEnabled
-      ) ?? false
+      ) ?? Self.defaultPelvicFloorTrainingEnabled
     normalize()
   }
 }

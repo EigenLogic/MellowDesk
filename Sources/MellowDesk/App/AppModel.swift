@@ -12,6 +12,7 @@ final class AppModel: ObservableObject {
   let activityHistoryStore: ActivityHistoryStore
   let reminderScheduler: ReminderScheduler
   let launchAtLoginService: LaunchAtLoginService
+  let updateService: SparkleUpdateService
 
   @Published private(set) var lastUserFacingError: String?
 
@@ -23,19 +24,22 @@ final class AppModel: ObservableObject {
     historyStore: HistoryStore? = nil,
     activityHistoryStore: ActivityHistoryStore? = nil,
     reminderScheduler: ReminderScheduler? = nil,
-    launchAtLoginService: LaunchAtLoginService? = nil
+    launchAtLoginService: LaunchAtLoginService? = nil,
+    updateService: SparkleUpdateService? = nil
   ) {
     self.settingsStore = settingsStore ?? SettingsStore()
     self.historyStore = historyStore ?? HistoryStore()
     self.activityHistoryStore = activityHistoryStore ?? ActivityHistoryStore()
     self.reminderScheduler = reminderScheduler ?? ReminderScheduler()
     self.launchAtLoginService = launchAtLoginService ?? LaunchAtLoginService()
+    self.updateService = updateService ?? SparkleUpdateService()
 
     self.settingsStore.objectWillChange
       .merge(with: self.historyStore.objectWillChange)
       .merge(with: self.activityHistoryStore.objectWillChange)
       .merge(with: self.reminderScheduler.objectWillChange)
       .merge(with: self.launchAtLoginService.objectWillChange)
+      .merge(with: self.updateService.objectWillChange)
       .sink { [weak self] _ in self?.objectWillChange.send() }
       .store(in: &cancellables)
   }
@@ -43,6 +47,9 @@ final class AppModel: ObservableObject {
   var settings: AppSettings { settingsStore.settings }
   var nextDue: Date? { reminderScheduler.nextDue }
   var activeReminder: ReminderOccurrence? { reminderScheduler.activeReminder }
+  var automaticUpdatesEnabled: Bool { updateService.automaticUpdatesEnabled }
+  var currentVersionDisplayText: String { updateService.currentVersionDisplayText }
+  var readyUpdateVersion: String? { updateService.readyUpdateVersion }
 
   var todayCompletedCount: Int {
     todayCount(for: .neck) + todayCount(for: .water) + todayCount(for: .stand)
@@ -61,6 +68,7 @@ final class AppModel: ObservableObject {
     guard !didStart else { return }
     didStart = true
 
+    updateService.start()
     launchAtLoginService.refresh()
     reminderScheduler.$activeReminder
       .removeDuplicates()
@@ -117,6 +125,20 @@ final class AppModel: ObservableObject {
     }
   }
 
+  /// Sparkle persists these preferences directly in the app's user defaults.
+  /// They stay independent from the health plan and never reschedule a reminder.
+  func setAutomaticUpdatesEnabled(_ enabled: Bool) {
+    updateService.setAutomaticUpdatesEnabled(enabled)
+  }
+
+  func checkForUpdatesManually() {
+    updateService.checkForUpdates()
+  }
+
+  func installReadyUpdate() {
+    updateService.installReadyUpdate()
+  }
+
   func snoozeTenMinutes() {
     Task {
       await reminderScheduler.snoozeTenMinutes(settings: settings)
@@ -145,7 +167,7 @@ final class AppModel: ObservableObject {
     AppWindowCoordinator.shared.showManualMovementBreak()
   }
 
-  /// The hidden pelvic-floor practice is an extra, not one of the three planned
+  /// The pelvic-floor practice is an extra, not one of the three planned
   /// activities: it stays out of the rotation and out of the local history. Starting
   /// it only holds reminders back while the window is open.
   func startPelvicFloorBreak() {

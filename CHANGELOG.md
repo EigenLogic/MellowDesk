@@ -4,22 +4,30 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 ## Unreleased
 
+- No unreleased user-visible changes recorded.
+
+## [0.1.0-beta.4] - 2026-08-14
+
 ### Added
 
 - A unified work-break rotation for stand-up movement, hydration, and the existing neck-and-shoulder routine.
 - A two-minute guided movement window, lightweight hydration check-ins, and local per-activity history.
 - Activity-aware persistent cards, system notifications, menu-bar status, settings, dashboard totals, trends, and recent completions.
-- A hidden two-minute pelvic-floor follow-along, off by default and revealed in Settings. A ring of twelve bars contracts toward its center and back to pace each lift and release, with no camera and no recorded history, and it stays out of the reminder rotation. See [Exercise Content](docs/EXERCISE_CONTENT.md).
+- A two-minute pelvic-floor follow-along, enabled by default and available directly from the menu bar, with an option to disable it in Settings. A ring of twelve bars contracts toward its center and back to pace each lift and release. It uses no camera or motion measurement, stays out of the reminder rotation, and writes no completion history. See [Exercise Content](docs/EXERCISE_CONTENT.md).
+- Sparkle 2.9.5 updates, enabled by default: MellowDesk checks the signed appcast daily, downloads a newer GitHub Release ZIP in the background, verifies EdDSA and Developer ID signatures, then offers **Install and Relaunch** or **Later**. Later installs the ready update when the app quits, without opening a web page.
 
 ### Changed
 
 - New installations start with a balanced 50-minute rhythm. Only one activity is due at a time; snoozing preserves that activity, while completion advances the rotation.
 - Existing beta reminder state and neck-workout history remain readable.
+- Beta.4 is the first Sparkle seed. Beta.3 to beta.4 remains the final manual installation; subsequent releases can update in app.
 
 ### Fixed
 
 - Source and CI development apps now use the distinct `cn.eigenlogic.mellowdesk.dev` identity and Dev name, isolating their local data and macOS privacy permissions from the Developer ID signed release. Official releases continue to use `cn.eigenlogic.mellowdesk`.
 - Camera authorization state, request, and outcome are now available in macOS unified logs, making failed permission flows diagnosable without recording camera frames or head-pose data.
+
+See the full [v0.1.0-beta.4 release notes](docs/releases/v0.1.0-beta.4.md).
 
 ## [0.1.0-beta.3] - 2026-08-12
 

@@ -10,7 +10,7 @@
 
 **Open-source beta · macOS 13+ · Apache-2.0**
 
-MellowDesk is a native menu-bar companion with one low-interruption work-break plan that rotates stand-up movement, hydration, and a guided neck-and-shoulder routine.
+MellowDesk is a native menu-bar companion with one low-interruption work-break plan that rotates stand-up movement, hydration, and a guided neck-and-shoulder routine, plus an on-demand pelvic-floor follow-along.
 
 ```text
 unified reminder rhythm → stand / hydrate / neck break → local history
@@ -26,6 +26,8 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 - A single default 50-minute rhythm rotating stand-up movement, hydration with movement, and the neck routine, with only one card at a time.
 - A two-minute movement guide and lightweight hydration check-ins without fixed-volume targets.
 - The NeckEase routine: slow left/right rotation, gentle left/right lateral flexion, and a gentle nod back to neutral.
+- A two-minute pelvic-floor follow-along, enabled by default and available from the menu bar. It can be disabled in Settings, uses no camera or motion measurement, and stays outside the automatic reminder rotation and completion history.
+- Built-in updates powered by Sparkle 2.9.5. By default MellowDesk checks daily, downloads a newer release in the background, and verifies its EdDSA and Developer ID signatures. When it is ready, choose **Install and Relaunch** or **Later**; Later installs it when MellowDesk quits. No browser or release page is involved.
 - Animated guidance, current direction, target repetitions, hold/return feedback, and completion results.
 - On-device head-pose counting with neutral calibration, per-movement direction adaptation, filtering, hysteresis, and complete return-to-neutral checks.
 - Manual counting when camera permission is declined, the camera is unavailable, or recognition is unreliable.
@@ -35,14 +37,14 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 
 - Camera frames are processed in memory with Apple frameworks. They are not recorded, saved, or uploaded.
 - MellowDesk stores settings, workout summaries, and stand/hydration completion times on this Mac. It does not store images, face templates, audio, or frame-by-frame head angles.
-- The app has no network entitlement and contains no account, cloud, advertising, analytics, or telemetry integration.
+- Network access is limited to the signed appcast on raw GitHub and the referenced MellowDesk GitHub Release ZIP. The app sends no account, health, camera, history, analytics, advertising, telemetry, or system-profile payload.
 - History can be cleared from Settings at any time.
 
 Read the complete [Privacy Policy](PRIVACY.md) before reporting privacy-sensitive issues.
 
 ## Exercise scope
 
-NeckEase is a short activity reminder for general adult office use. It is not a medical device and does not provide diagnosis, treatment, or an individualized rehabilitation plan. Move slowly within a comfortable range and stop if the movement causes discomfort.
+NeckEase and the pelvic-floor follow-along are short activity guides for general adult office use. They are not medical devices and do not provide diagnosis, treatment, or an individualized rehabilitation plan. Move within a comfortable range and stop if an activity causes discomfort.
 
 The camera thresholds are approximate recognition thresholds, not medical range-of-motion targets or exercise prescriptions. See [Exercise Content and Evidence](docs/EXERCISE_CONTENT.md) for the routine version, doses, recognition behavior, sources, and content-governance rules.
 
@@ -56,9 +58,13 @@ A full Xcode installation compatible with Swift 5.10 is required only when build
 ## Download
 
 Download the notarized universal macOS build from the
-[v0.1.0-beta.3 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.3).
+[v0.1.0-beta.4 release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.4).
 The release includes a SHA-256 checksum file. The app is signed by EigenLogic with Developer ID,
 uses Hardened Runtime, and is notarized by Apple.
+
+Beta.4 is the first Sparkle-enabled seed. Upgrading from beta.3 to beta.4 is the final manual
+download and installation; once beta.4 is installed, later releases can be downloaded and installed
+inside MellowDesk without opening a web page.
 
 ## Build from source
 
@@ -82,15 +88,16 @@ The development app is assembled at `build/MellowDesk.app` with bundle identifie
 
 1. Open `MellowDesk.app` and allow notifications if you want scheduled reminders.
 2. The default workday plan rotates stand, hydration, and neck reminders; each activity can also be started from the menu bar.
-3. For the neck routine, start the camera session or switch to manual counting.
-4. Face the screen briefly to establish a neutral pose.
-5. Before each movement, complete one small, uncounted adaptation movement and return to neutral.
-6. Follow the animation. A repetition counts only after the target hold and a visible return to neutral.
+3. The two-minute pelvic-floor follow-along is also available from the menu bar by default and can be disabled in Settings. It is on demand and does not enter the reminder rotation or completion history.
+4. For the neck routine, start the camera session or switch to manual counting.
+5. Face the screen briefly to establish a neutral pose.
+6. Before each movement, complete one small, uncounted adaptation movement and return to neutral.
+7. Follow the animation. A repetition counts only after the target hold and a visible return to neutral.
 
 ## Known beta limitations
 
 - Camera counting is intentionally approximate and varies with camera model, lighting, framing, and individual movement.
-- The first beta has Chinese app UI; English project documentation does not imply English UI localization.
+- The app UI remains Chinese in this beta; English project documentation does not imply English UI localization.
 - Source-built apps use local ad-hoc signing; the official GitHub Release is Developer ID signed and notarized.
 - At least one real MacBook camera pass is required in addition to automated tests; use the [Real-camera Test Checklist](docs/TEST_CHECKLIST.md).
 
@@ -106,7 +113,7 @@ Scripts                      checks, app assembly, and local launch
 docs                         product, technical, exercise, test, and release documentation
 ```
 
-The repository currently contains **more than 60 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
+The repository currently contains **80 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
 
 ## Roadmap
 
@@ -128,7 +135,7 @@ Roadmap items are exploratory and are not claims about current functionality.
 - [Code of Conduct](CODE_OF_CONDUCT.md)
 - [Security Policy](SECURITY.md)
 - [Changelog](CHANGELOG.md)
-- [v0.1.0-beta.3 Release Notes](docs/releases/v0.1.0-beta.3.md)
+- [v0.1.0-beta.4 Release Notes](docs/releases/v0.1.0-beta.4.md)
 
 ## Contributing and security
 
