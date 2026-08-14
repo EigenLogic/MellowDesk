@@ -58,11 +58,39 @@ These sources support staying active and studying exercise interventions, but th
 
 这些资料支持保持活动，并讨论办公人群运动干预，但不能证明本产品这套约三分钟动作可以治疗颈痛，也不能证明它对每个人效果相同。小桌伴不作此类宣称。仓库中的文案和插图必须保持原创；引用链接不代表可以复制第三方原文或图片。
 
+## Hidden extra: pelvic-floor follow-along / 隐藏练习：提肛跟练
+
+Routine version / 内容版本: `pelvic-floor-v1.0`
+
+**English:** A two-minute paced pelvic-floor (Kegel) follow-along, hidden and off by default. It is revealed by tapping the footer line at the bottom of Settings five times, then enabling the toggle. It is a visual metronome only: no camera, no sensor, no measurement, no completion record, and it never joins the reminder rotation. Twelve bars arranged as a clock face contract together toward the center while lifting, stay in while holding, and return outward while releasing; a dashed circle marks the relaxed position.
+
+**中文：**一段两分钟的提肛跟练，默认隐藏且关闭；在设置页底部连点五次页脚文字后可见，再打开开关启用。它只是节拍提示：不用摄像头、不做识别、不计次判定、不写入完成记录，也不参与提醒轮换。12 根竖线排成表盘形状：收提时一起向圆心收缩，保持时停在内侧，放松时还原到外侧；虚线圆环标出放松位置。
+
+| Segment | UI name | Tempo | Product dose |
+|---|---|---|---:|
+| 1 | 慢速提肛 | 3 s lift · 2 s hold · 3 s release · 2 s rest | 3 lifts / 30 s |
+| 2 | 快速提肛 | 1 s lift · 1 s release | 15 lifts / 30 s |
+| 3 | 快快慢 | short · short · long, then a full rest beat (a *We Will Rock You* style pattern) | 15 lifts / 30 s |
+| 4 | 快提慢放 | fast lift · 1.5 s hold · 3 s release · 1 s rest | 5 lifts / 30 s |
+
+The tempo pattern in segment 3 is only a familiar rhythmic feel; no music, audio, or lyrics from any recording are used or reproduced.
+
+第三段只是借用一种熟悉的节奏感，不使用也不复制任何录音、音频或歌词。
+
+Breathe normally throughout. Do not hold your breath or squeeze the abdomen, buttocks, or thighs at the same time. Stop and consult a professional if there is pain, marked discomfort, or worsening of an existing symptom.
+
+全程自然呼吸，不憋气，也不要同时收紧腹部、臀部或大腿。出现疼痛、明显不适或原有症状加重请停止，并咨询专业人士。
+
+Slow-and-fast contraction sets are a common shape for general pelvic-floor practice, and the doses above are a product pacing choice, not a treatment prescription or an individualized program. MellowDesk claims no therapeutic effect for this practice and does not evaluate whether any contraction happened.
+
+慢速与快速交替是一般盆底练习的常见形式，上面的次数只是产品节奏安排，不是治疗处方或个体化方案。小桌伴不宣称这项练习具有治疗作用，也不判断用户是否真的完成了收提。
+
 ## Content status / 内容状态
 
 | Version | Maintainer review | Independent clinical sign-off |
 |---|---|---|
 | `neck-ease-v1.0` | Sources, wording, recognition boundary, and tests reviewed in-repository | Not recorded for this beta |
+| `pelvic-floor-v1.0` | Wording, tempo, safety boundary, and deterministic tests reviewed in-repository | Not recorded for this beta |
 
 Independent professional review is welcome as later content governance, but it is not required to build, test, or contribute to the current open-source beta.
 

@@ -9,6 +9,7 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 - A unified work-break rotation for stand-up movement, hydration, and the existing neck-and-shoulder routine.
 - A two-minute guided movement window, lightweight hydration check-ins, and local per-activity history.
 - Activity-aware persistent cards, system notifications, menu-bar status, settings, dashboard totals, trends, and recent completions.
+- A hidden two-minute pelvic-floor follow-along, off by default and revealed in Settings. A ring of twelve bars contracts toward its center and back to pace each lift and release, with no camera and no recorded history, and it stays out of the reminder rotation. See [Exercise Content](docs/EXERCISE_CONTENT.md).
 
 ### Changed
 

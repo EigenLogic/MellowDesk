@@ -30,6 +30,8 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private var movementBreakCloseObserver: WindowCloseObserver?
   private var movementBreakSessionID: UUID?
   private var movementBreakDidResolve = false
+  private var pelvicFloorWindow: NSWindow?
+  private var pelvicFloorCloseObserver: WindowCloseObserver?
   private var statusItem: NSStatusItem?
   private var statusPopover: NSPopover?
   private var statusPopoverMode: StatusPopoverMode?
@@ -255,6 +257,41 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     present(window)
   }
 
+  func showPelvicFloorBreak() {
+    dismissStatusMenu()
+    if let pelvicFloorWindow {
+      present(pelvicFloorWindow)
+      return
+    }
+
+    let view = PelvicFloorBreakView(
+      onClose: { [weak self] in
+        self?.pelvicFloorWindow?.close()
+      }
+    )
+    let window = makeWindow(
+      title: "提肛跟练",
+      size: NSSize(width: 560, height: 700),
+      minimumSize: NSSize(width: 520, height: 640),
+      rootView: view
+    )
+    let observer = WindowCloseObserver(
+      onClose: { [weak self, weak window] in
+        guard let self, let window, window === self.pelvicFloorWindow else { return }
+        self.pelvicFloorWindow = nil
+        self.pelvicFloorCloseObserver = nil
+        AppModel.shared.pelvicFloorBreakDismissed()
+      },
+      onMiniaturize: {},
+      onDeminiaturize: {}
+    )
+    window.delegate = observer
+
+    pelvicFloorWindow = window
+    pelvicFloorCloseObserver = observer
+    present(window)
+  }
+
   func closeWorkout() {
     workoutWindow?.close()
   }
@@ -426,7 +463,7 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     let view = MenuBarContentView()
       .environmentObject(AppModel.shared)
     presentStatusPopover(
-      contentSize: NSSize(width: 330, height: 354),
+      contentSize: MenuBarContentView.contentSize(for: AppModel.shared.settings),
       contentViewController: NSHostingController(rootView: view)
     )
   }

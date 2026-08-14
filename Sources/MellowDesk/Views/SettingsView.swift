@@ -5,8 +5,11 @@ import SwiftUI
 import UserNotifications
 
 struct SettingsView: View {
+  private static let hiddenRevealTapCount = 5
+
   @EnvironmentObject private var appModel: AppModel
   @State private var confirmClearHistory = false
+  @State private var hiddenRevealTaps = 0
 
   var body: some View {
     ScrollView {
@@ -18,6 +21,10 @@ struct SettingsView: View {
         workWindowSection
         generalSection
         privacySection
+        if isHiddenPracticeVisible {
+          hiddenPracticeSection
+        }
+        hiddenPracticeFooter
       }
       .padding(28)
     }
@@ -204,6 +211,67 @@ struct SettingsView: View {
       }
     }
     .appCard()
+  }
+
+  /// Stays visible once the practice is on, so an enabled setting is never
+  /// unreachable after the window is reopened.
+  private var isHiddenPracticeVisible: Bool {
+    appModel.settings.pelvicFloorTrainingEnabled
+      || hiddenRevealTaps >= Self.hiddenRevealTapCount
+  }
+
+  private var hiddenPracticeSection: some View {
+    VStack(alignment: .leading, spacing: 12) {
+      HStack {
+        Label("隐藏练习", systemImage: "sparkles")
+          .font(.headline)
+        Spacer()
+        PillLabel(systemImage: "eye.slash", text: "彩蛋")
+      }
+
+      Toggle("提肛跟练 2 分钟", isOn: binding(\.pelvicFloorTrainingEnabled))
+
+      Text(
+        "开启后，菜单栏的“开始 3 分钟微运动”下面会多出“开始 2 分钟提肛跟练”。跟练画面是 12 根竖线组成的圆环：竖线一起向圆心收缩表示提，还原表示放松。四个半分钟依次是慢速提肛、快速提肛、快快慢节奏和快提慢放。"
+      )
+      .font(.caption)
+      .foregroundStyle(.secondary)
+      .fixedSize(horizontal: false, vertical: true)
+
+      Text("这项练习不用摄像头，也不进入提醒轮换或完成记录。")
+        .font(.caption)
+        .foregroundStyle(AppTheme.secondaryInk)
+
+      Text(PelvicFloorRoutine.v1.safetyNotice)
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .fixedSize(horizontal: false, vertical: true)
+    }
+    .appCard()
+  }
+
+  private var hiddenPracticeFooter: some View {
+    VStack(spacing: 4) {
+      Text("小桌伴 · 只在这台 Mac 上运行")
+        .font(.caption2)
+        .foregroundStyle(.secondary)
+        .contentShape(Rectangle())
+        .onTapGesture { revealHiddenPractice() }
+
+      if !isHiddenPracticeVisible, hiddenRevealTaps >= 3 {
+        Text("再点 \(Self.hiddenRevealTapCount - hiddenRevealTaps) 下…")
+          .font(.caption2)
+          .foregroundStyle(AppTheme.accent)
+      }
+    }
+    .frame(maxWidth: .infinity)
+  }
+
+  private func revealHiddenPractice() {
+    guard !isHiddenPracticeVisible else { return }
+    withAnimation(.easeOut(duration: 0.22)) {
+      hiddenRevealTaps += 1
+    }
   }
 
   private var notificationDescription: String {
