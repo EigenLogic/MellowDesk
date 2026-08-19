@@ -107,6 +107,8 @@ struct ReminderCardView: View {
       return "要不要喝几口水？"
     case .neck:
       return "给颈肩 3 分钟"
+    case .pelvicFloor:
+      return "来一组提肛跟练"
     }
   }
 
@@ -118,6 +120,8 @@ struct ReminderCardView: View {
       return "起身接点水，顺便活动 2 分钟；按自己的节奏喝就好。"
     case .neck:
       return "跟着动画缓慢活动，只做到舒适范围；提醒会一直留在这里。"
+    case .pelvicFloor:
+      return "跟随节奏收提与放松，坐着或站着都可以；提醒会一直留在这里。"
     }
   }
 
@@ -129,6 +133,8 @@ struct ReminderCardView: View {
       return "喝水并活动 2 分钟"
     case .neck:
       return "开始 3 分钟微运动"
+    case .pelvicFloor:
+      return "开始 2 分钟提肛跟练"
     }
   }
 }

@@ -8,7 +8,7 @@ Please follow the [Code of Conduct](CODE_OF_CONDUCT.md) in all project spaces.
 
 - Search existing issues and pull requests before opening a duplicate.
 - For a large feature, data-model change, permission change, or new reminder module, discuss the scope in an issue first.
-- Keep the current beta honest: stand-up movement, hydration, NeckEase, and the on-demand pelvic-floor follow-along are implemented; lunch and takeout reminders remain roadmap items. The pelvic-floor guide is enabled by default but stays outside reminder rotation and completion history.
+- Keep the current beta honest: stand-up movement, hydration, NeckEase, and the pelvic-floor follow-along are implemented; lunch and takeout reminders remain roadmap items. The pelvic-floor guide is enabled by default, joins the regular rotation, and writes a completion only after the full guide finishes.
 - Never use real faces, camera recordings, personal health information, or workout-history files as fixtures.
 
 ## Development requirements
@@ -23,7 +23,7 @@ Run the full local check:
 ./Scripts/check.sh
 ```
 
-The check validates property lists, runs swift-format when available, executes the 81 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
+The check validates property lists, runs swift-format when available, executes the 85 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
 
 For a faster development launch:
 

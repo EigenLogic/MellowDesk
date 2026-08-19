@@ -30,6 +30,22 @@ final class ActivityHistoryStoreTests: XCTestCase {
     )
   }
 
+  func testPelvicFloorCompletionPersistsAndReloads() throws {
+    let context = try makeContext()
+    defer { context.remove() }
+    let completion = ActivityCompletion(
+      activity: .pelvicFloor,
+      completedAt: Date(timeIntervalSince1970: 300),
+      sourceID: "pelvic-reminder"
+    )
+    let store = ActivityHistoryStore(fileURL: context.fileURL)
+
+    try store.append(completion)
+
+    XCTAssertEqual(store.completions, [completion])
+    XCTAssertEqual(ActivityHistoryStore(fileURL: context.fileURL).completions, [completion])
+  }
+
   func testAppendWithSameIdentifierReplacesExistingCompletion() throws {
     let context = try makeContext()
     defer { context.remove() }

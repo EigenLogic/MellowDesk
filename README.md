@@ -10,10 +10,10 @@
 
 **Open-source beta · macOS 13+ · Apache-2.0**
 
-MellowDesk is a native menu-bar companion with one low-interruption work-break plan that rotates stand-up movement, hydration, and a guided neck-and-shoulder routine, plus an on-demand pelvic-floor follow-along.
+MellowDesk is a native menu-bar companion with one low-interruption work-break plan that rotates stand-up movement, hydration, a guided neck-and-shoulder routine, and a pelvic-floor follow-along.
 
 ```text
-unified reminder rhythm → stand / hydrate / neck break → local history
+unified reminder rhythm → stand / hydrate / neck / pelvic floor → local history
 ```
 
 There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begins only after you start a routine, and manual counting is always available.
@@ -23,10 +23,10 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 - A menu-bar companion with configurable workdays, work hours, reminder intervals, sound, snooze, pause, and launch at login.
 - A persistent reminder anchored to the menu-bar leaf that waits for Start, Snooze, or Pause instead of disappearing after a few seconds.
 - Local notifications with **Start** and **Snooze 10 minutes** actions.
-- A single default 50-minute rhythm rotating stand-up movement, hydration with movement, and the neck routine, with only one card at a time.
+- A single default 50-minute rhythm rotating stand-up movement, hydration with movement, the neck routine, and pelvic-floor practice, with only one card at a time.
 - A two-minute movement guide and lightweight hydration check-ins without fixed-volume targets.
 - The NeckEase routine: slow left/right rotation, gentle left/right lateral flexion, and a gentle nod back to neutral.
-- A two-minute pelvic-floor follow-along, enabled by default and available from the menu bar. It can be disabled in Settings, uses no camera or motion measurement, and stays outside the automatic reminder rotation and completion history.
+- A two-minute pelvic-floor follow-along, enabled by default, included in the regular rotation, and available from the menu bar. It can be disabled in Settings, uses no camera or motion measurement, and completed sessions appear in local history and statistics.
 - Built-in updates powered by Sparkle 2.9.5. By default MellowDesk checks daily, downloads a newer release in the background, and verifies its EdDSA and Developer ID signatures. When it is ready, choose **Install and Relaunch** or **Later**; Later installs it when MellowDesk quits. No browser or release page is involved.
 - Animated guidance, current direction, target repetitions, hold/return feedback, and completion results.
 - On-device head-pose counting with neutral calibration, per-movement direction adaptation, filtering, hysteresis, and complete return-to-neutral checks.
@@ -36,7 +36,7 @@ There are no accounts, cloud sync, ads, analytics, or telemetry. Camera use begi
 ## Privacy in one minute
 
 - Camera frames are processed in memory with Apple frameworks. They are not recorded, saved, or uploaded.
-- MellowDesk stores settings, workout summaries, and stand/hydration completion times on this Mac. It does not store images, face templates, audio, or frame-by-frame head angles.
+- MellowDesk stores settings, workout summaries, and stand/hydration/pelvic-floor completion times on this Mac. It does not store images, face templates, audio, or frame-by-frame head angles.
 - Network access is limited to the signed appcast on raw GitHub and the referenced MellowDesk GitHub Release ZIP. The app sends no account, health, camera, history, analytics, advertising, telemetry, or system-profile payload.
 - History can be cleared from Settings at any time.
 
@@ -87,8 +87,8 @@ The development app is assembled at `build/MellowDesk.app` with bundle identifie
 ## First run
 
 1. Open `MellowDesk.app` and allow notifications if you want scheduled reminders.
-2. The default workday plan rotates stand, hydration, and neck reminders; each activity can also be started from the menu bar.
-3. The two-minute pelvic-floor follow-along is also available from the menu bar by default and can be disabled in Settings. It is on demand and does not enter the reminder rotation or completion history.
+2. The default workday plan rotates stand, hydration, neck, and pelvic-floor reminders; each activity can also be started from the menu bar.
+3. The two-minute pelvic-floor follow-along is enabled by default and can be disabled in Settings. Completing the full guide adds one local completion record.
 4. For the neck routine, start the camera session or switch to manual counting.
 5. Face the screen briefly to establish a neutral pose.
 6. Before each movement, complete one small, uncounted adaptation movement and return to neutral.
@@ -113,7 +113,7 @@ Scripts                      checks, app assembly, and local launch
 docs                         product, technical, exercise, test, and release documentation
 ```
 
-The repository currently contains **81 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
+The repository currently contains **85 deterministic tests**. Synthetic tests do not replace real-camera acceptance.
 
 ## Roadmap
 

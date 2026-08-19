@@ -203,6 +203,65 @@ final class ReminderSchedulerTests: XCTestCase {
     XCTAssertEqual(request.content.title, "要不要喝几口水？")
   }
 
+  func testNeckCompletionAdvancesToPelvicFloorReminder() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(2, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+    await scheduler.activate(settings: settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let neckReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertEqual(neckReminder.activity, .neck)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: neckReminder.id))
+
+    let completedAt = due.addingTimeInterval(3 * 60)
+    await scheduler.activityCompleted(at: completedAt, settings: settings)
+
+    let nextDue = completedAt.addingTimeInterval(50 * 60)
+    let occurrence = ReminderOccurrence(dueAt: nextDue, slot: 3)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertEqual(scheduler.nextActivity, .pelvicFloor)
+    XCTAssertEqual(request.content.title, "来一组提肛跟练")
+    XCTAssertEqual(
+      request.content.body,
+      "跟随 2 分钟节奏收提与放松，坐着或站着都可以。"
+    )
+  }
+
+  func testDisabledPelvicFloorSkipsItsRotationSlot() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    var disabledSettings = settings
+    disabledSettings.pelvicFloorTrainingEnabled = false
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    context.defaults.set(due.timeIntervalSince1970, forKey: ReminderScheduler.nextDueDefaultsKey)
+    context.defaults.set(3, forKey: ReminderScheduler.nextSlotDefaultsKey)
+    context.defaults.set(
+      due.timeIntervalSince1970,
+      forKey: ReminderScheduler.nextSlotDueDefaultsKey
+    )
+    let scheduler = context.makeScheduler()
+
+    await scheduler.activate(settings: disabledSettings, now: now)
+
+    let occurrence = ReminderOccurrence(dueAt: due, slot: 0)
+    let request = try XCTUnwrap(context.client.requests[occurrence.notificationRequestIdentifier])
+    XCTAssertEqual(scheduler.nextActivity, .stand)
+    XCTAssertEqual(request.content.title, "起来走两步吧")
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      0
+    )
+  }
+
   func testDismissedQuickActivitySnoozesTenMinutesWithoutAdvancingSlot() async throws {
     let context = makeContext()
     defer { context.clearDefaults() }

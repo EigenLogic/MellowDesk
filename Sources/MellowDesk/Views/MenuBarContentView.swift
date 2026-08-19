@@ -128,10 +128,12 @@ struct MenuBarContentView: View {
         }
 
         Text(
-          "颈肩 \(appModel.todayCount(for: .neck)) · 喝水 \(appModel.todayCount(for: .water)) · 起身 \(appModel.todayCount(for: .stand))"
+          "颈肩 \(appModel.todayCount(for: .neck)) · 提肛 \(appModel.todayCount(for: .pelvicFloor)) · 喝水 \(appModel.todayCount(for: .water)) · 起身 \(appModel.todayCount(for: .stand))"
         )
         .font(.caption2.weight(.medium))
         .foregroundStyle(AppTheme.secondaryInk)
+        .lineLimit(1)
+        .minimumScaleFactor(0.75)
 
         reminderDescription
           .font(.caption)

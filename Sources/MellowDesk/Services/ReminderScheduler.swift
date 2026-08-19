@@ -15,7 +15,7 @@ struct ReminderOccurrence: Codable, Equatable, Identifiable, Sendable {
   let dueAt: Date
   let slot: Int
 
-  init(dueAt: Date, slot: Int = WellnessPlan.cycleLength - 1) {
+  init(dueAt: Date, slot: Int = WellnessPlan.legacyNeckSlot) {
     self.dueAt = dueAt
     self.slot = WellnessPlan.normalizedSlot(slot)
   }
@@ -43,7 +43,7 @@ struct ReminderOccurrence: Codable, Equatable, Identifiable, Sendable {
     // beta.3 persisted only `dueAt`, and every such occurrence was a neck workout.
     slot = WellnessPlan.normalizedSlot(
       try container.decodeIfPresent(Int.self, forKey: .slot)
-        ?? WellnessPlan.cycleLength - 1
+        ?? WellnessPlan.legacyNeckSlot
     )
   }
 }
@@ -175,7 +175,10 @@ final class ReminderScheduler: ObservableObject {
   @Published private(set) var lastErrorDescription: String?
 
   var nextActivity: WellnessActivityKind {
-    activeReminder?.activity ?? WellnessPlan.activity(for: scheduledSlot)
+    activeReminder?.activity
+      ?? WellnessPlan.activity(
+        for: enabledSlot(startingAt: scheduledSlot, settings: resolvedSettings())
+      )
   }
 
   private let notificationClient: ReminderNotificationClient
@@ -232,7 +235,7 @@ final class ReminderScheduler: ObservableObject {
     } else {
       // A future beta.3 reminder was always a neck workout. A genuinely new
       // installation starts with the most useful whole-body break instead.
-      scheduledSlot = restoredNextDue == nil ? 0 : WellnessPlan.cycleLength - 1
+      scheduledSlot = restoredNextDue == nil ? 0 : WellnessPlan.legacyNeckSlot
     }
 
     if let data = defaults.data(forKey: Self.activeReminderDefaultsKey),
@@ -382,7 +385,7 @@ final class ReminderScheduler: ObservableObject {
     activeSettings = settings
     clearActiveReminder()
     if let completedSlot = inProgressReminderSlot {
-      setScheduledSlot(completedSlot + 1)
+      setScheduledSlot(enabledSlot(startingAt: completedSlot + 1, settings: settings))
     }
     inProgressReminderSlot = nil
     let due = nextScheduledDate(after: completionDate, settings: settings)
@@ -619,7 +622,10 @@ final class ReminderScheduler: ObservableObject {
       return
     }
 
-    let occurrence = ReminderOccurrence(dueAt: due, slot: scheduledSlot)
+    let occurrence = ReminderOccurrence(
+      dueAt: due,
+      slot: enabledSlot(startingAt: scheduledSlot, settings: settings)
+    )
     setScheduledSlot(occurrence.slot)
     setPersistedNextDue(due)
     armRollover(after: due)
@@ -636,6 +642,9 @@ final class ReminderScheduler: ObservableObject {
     case .neck:
       content.title = "给颈肩 3 分钟"
       content.body = "跟着动画缓慢活动，只做到舒适范围。"
+    case .pelvicFloor:
+      content.title = "来一组提肛跟练"
+      content.body = "跟随 2 分钟节奏收提与放松，坐着或站着都可以。"
     }
     content.categoryIdentifier = ReminderNotificationIdentifier.category
     content.threadIdentifier = "cn.eigenlogic.mellowdesk.reminders"
@@ -762,5 +771,15 @@ final class ReminderScheduler: ObservableObject {
   private func setScheduledSlot(_ slot: Int) {
     scheduledSlot = WellnessPlan.normalizedSlot(slot)
     defaults.set(scheduledSlot, forKey: Self.nextSlotDefaultsKey)
+  }
+
+  private func enabledSlot(startingAt slot: Int, settings: AppSettings) -> Int {
+    let normalized = WellnessPlan.normalizedSlot(slot)
+    if WellnessPlan.activity(for: normalized) == .pelvicFloor,
+      !settings.pelvicFloorTrainingEnabled
+    {
+      return WellnessPlan.normalizedSlot(normalized + 1)
+    }
+    return normalized
   }
 }
