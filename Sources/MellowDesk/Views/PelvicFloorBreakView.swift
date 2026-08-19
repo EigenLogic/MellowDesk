@@ -5,10 +5,11 @@ import SwiftUI
 /// The two-minute pelvic-floor follow-along.
 ///
 /// The clock is derived from `runningSince` plus the time banked in `accumulated`,
-/// so pausing never drifts. Nothing is measured or recorded; the ring is a cue.
+/// so pausing never drifts. Nothing is measured; completing the routine records one session.
 struct PelvicFloorBreakView: View {
   var routine: PelvicFloorRoutine = .v1
-  let onClose: () -> Void
+  let onComplete: () -> Void
+  let onSkip: () -> Void
 
   @State private var accumulated: TimeInterval = 0
   @State private var runningSince: Date? = Date()
@@ -69,7 +70,7 @@ struct PelvicFloorBreakView: View {
         Text("\(routine.displayName) 2 分钟")
           .font(.system(size: 25, weight: .bold, design: .rounded))
           .foregroundStyle(AppTheme.ink)
-        Text("坐着或站着都行：12 根竖线向圆心收缩时收提，还原时放松；不计入完成记录。")
+        Text("坐着或站着都行：12 根竖线向圆心收缩时收提，还原时放松；练完会记入完成记录。")
           .font(.subheadline)
           .foregroundStyle(AppTheme.secondaryInk)
       }
@@ -181,7 +182,11 @@ struct PelvicFloorBreakView: View {
       Spacer()
 
       Button {
-        onClose()
+        if didFinish {
+          onComplete()
+        } else {
+          onSkip()
+        }
       } label: {
         Label(
           didFinish ? "完成" : "跳过本次",

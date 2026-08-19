@@ -224,6 +224,17 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   func showPelvicFloorBreak() {
+    preparePelvicFloorBreakPopover(sourceID: nil)
+  }
+
+  func showPelvicFloorBreakFromReminder(_ occurrence: ReminderOccurrence) {
+    guard occurrence.activity == .pelvicFloor else { return }
+    DispatchQueue.main.async { [weak self] in
+      self?.preparePelvicFloorBreakPopover(sourceID: occurrence.id)
+    }
+  }
+
+  private func preparePelvicFloorBreakPopover(sourceID: String?) {
     if statusPopoverMode == .pelvicFloor {
       showCurrentActivityPopover()
       return
@@ -234,8 +245,11 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     }
 
     let view = PelvicFloorBreakView(
-      onClose: { [weak self] in
-        self?.finishPelvicFloorBreak()
+      onComplete: { [weak self] in
+        self?.finishPelvicFloorBreak(completed: true, sourceID: sourceID)
+      },
+      onSkip: { [weak self] in
+        self?.finishPelvicFloorBreak(completed: false, sourceID: sourceID)
       }
     )
     presentStatusPopover(
@@ -311,9 +325,13 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     finishStatusActivity(mode: .movement(sessionID))
   }
 
-  private func finishPelvicFloorBreak() {
+  private func finishPelvicFloorBreak(completed: Bool, sourceID: String?) {
     guard statusPopoverMode == .pelvicFloor else { return }
-    AppModel.shared.pelvicFloorBreakDismissed()
+    if completed {
+      AppModel.shared.completeQuickActivity(.pelvicFloor, sourceID: sourceID)
+    } else {
+      AppModel.shared.quickActivitySkipped()
+    }
     finishStatusActivity(mode: .pelvicFloor)
   }
 

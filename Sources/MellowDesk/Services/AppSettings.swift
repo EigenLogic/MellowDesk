@@ -20,8 +20,7 @@ struct AppSettings: Codable, Equatable, Sendable {
   var launchAtLoginEnabled: Bool
   var pauseUntil: Date?
   var dailyWorkoutGoal: Int
-  /// Optional pelvic-floor follow-along. It is available by default but never
-  /// joins the reminder rotation.
+  /// Optional pelvic-floor follow-along. Enabled by default and included in the rotation.
   var pelvicFloorTrainingEnabled: Bool
 
   static let `default` = AppSettings()

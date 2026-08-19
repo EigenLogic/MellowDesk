@@ -25,7 +25,7 @@ flowchart LR
   Counter --> Workout["WorkoutViewModel"]
   Workout --> UI["SwiftUI animation and feedback"]
   Workout --> History["atomic JSON history"]
-  Quick["stand / hydration completion"] --> ActivityHistory["atomic wellness history"]
+  Quick["stand / hydration / pelvic-floor completion"] --> ActivityHistory["atomic wellness history"]
   History --> Dashboard["today / 7d / 30d by activity"]
   ActivityHistory --> Dashboard
   Reminder["ReminderScheduler"] --> Notification["local notification"]
@@ -98,7 +98,7 @@ ready → calibrating → calibratingDirection → exercising → transitioning 
 
 ## 6. 提醒语义
 
-默认工作日 09:00–18:00、间隔 50 分钟。工作时段内从当前时间加完整间隔；时段外移动到下一个工作窗口起点。系统中始终只保留一条下一提醒，并按 `stand → water → neck` 轮换。补水项目同时打开两分钟起身活动引导，不记录或要求固定饮水量。
+默认工作日 09:00–18:00、间隔 50 分钟。工作时段内从当前时间加完整间隔；时段外移动到下一个工作窗口起点。系统中始终只保留一条下一提醒，并按 `stand → water → neck → pelvicFloor` 轮换。补水项目同时打开两分钟起身活动引导，不记录或要求固定饮水量；关闭提肛练习时调度器跳过该槽位。
 
 常驻进程为每个 due time 保留一个轻量 rollover task：到期后创建可跨重启恢复的 `ReminderOccurrence`，并持续显示菜单栏提醒，直到用户开始、推迟或暂停。推迟保留当前 slot；完成或明确跳过会推进 slot。活动开始后复用同一个 `.applicationDefined` 状态栏 Popover，并设置为浮动且不随 App 失焦隐藏；用户仍可点击状态栏图标手动收起和恢复。从睡眠唤醒、系统时间变化、时区变化和日期变化时重新检查过期状态，不补发一串错过的通知。系统通知只是 App 未运行、App Nap 或睡眠场景下的单条 fallback。
 
@@ -130,7 +130,7 @@ ExerciseResult (results[])
   exerciseID, targetReps, completedReps, mode(camera/manual/timer)
 
 ActivityCompletion
-  id, activity(stand/water), completedAt, sourceID?
+  id, activity(stand/water/pelvicFloor), completedAt, sourceID?
 ```
 
 历史不单独保存用时；展示时由 `endedAt - startedAt` 计算。
@@ -171,8 +171,8 @@ appcast 和发布 ZIP 使用 EdDSA 签名，下载所得 App 还必须通过 Dev
 - 不稳定中立位拒绝、中立区上限和暂停失效后配额保留。
 - 今日、7 天、30 天统计边界。
 - 工作日前后、下班后、周末和 snooze 提醒边界。
-- 三项轮换、旧版提醒迁移、推迟保槽、完成推进、关闭不推进和重启持久化。
-- 起身/喝水轻量历史的原子写入、幂等去重、日历边界和损坏恢复。
+- 四项轮换、旧版提醒固定迁移为颈肩、提肛开关跳槽、推迟保槽、完成推进、关闭不推进和重启持久化。
+- 起身/喝水/提肛轻量历史的原子写入、幂等去重、日历边界和损坏恢复。
 - Sparkle 配置、framework 布局、沙盒 entitlement、嵌套签名、公证和 appcast 资产签名由构建及发布门禁检查。
 
 自动检查入口：

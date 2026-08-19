@@ -8,6 +8,10 @@ No unreleased user-visible changes recorded.
 
 ## [0.1.0-beta.6] - 2026-08-19
 
+### Changed
+
+- Pelvic-floor practice now joins the regular stand, hydration, and neck rotation when enabled. Completing the full guide writes a local completion used by daily totals, recent history, and 7/30-day activity statistics; skipping writes nothing.
+
 ### Fixed
 
 - Active follow-alongs remain above other apps after MellowDesk loses focus, until the user completes, skips, or explicitly hides the activity.

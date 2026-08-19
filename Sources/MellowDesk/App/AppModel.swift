@@ -52,7 +52,7 @@ final class AppModel: ObservableObject {
   var readyUpdateVersion: String? { updateService.readyUpdateVersion }
 
   var todayCompletedCount: Int {
-    todayCount(for: .neck) + todayCount(for: .water) + todayCount(for: .stand)
+    WellnessActivityKind.allCases.reduce(0) { $0 + todayCount(for: $1) }
   }
 
   var lastCompletedAt: Date? {
@@ -153,6 +153,8 @@ final class AppModel: ObservableObject {
       AppWindowCoordinator.shared.showWorkoutFromReminder()
     case .stand, .water:
       AppWindowCoordinator.shared.showMovementBreakFromReminder(occurrence)
+    case .pelvicFloor:
+      AppWindowCoordinator.shared.showPelvicFloorBreakFromReminder(occurrence)
     }
     guard reminderScheduler.activityStarted(reminderID: id) else { return false }
     return true
@@ -167,18 +169,9 @@ final class AppModel: ObservableObject {
     AppWindowCoordinator.shared.showManualMovementBreak()
   }
 
-  /// The pelvic-floor practice is an extra, not one of the three planned
-  /// activities: it stays out of the rotation and out of the local history. Starting
-  /// it only holds reminders back while the window is open.
   func startPelvicFloorBreak() {
     reminderScheduler.activityStarted()
     AppWindowCoordinator.shared.showPelvicFloorBreak()
-  }
-
-  func pelvicFloorBreakDismissed() {
-    Task {
-      await reminderScheduler.activityDismissed(settings: settings)
-    }
   }
 
   func completeQuickActivity(
@@ -340,7 +333,7 @@ final class AppModel: ObservableObject {
         id: "activity-\(completion.id.uuidString)",
         activity: completion.activity,
         completedAt: completion.completedAt,
-        detail: completion.activity == .water ? "按自己的节奏补水" : "完成 2 分钟活动"
+        detail: completionDetail(for: completion.activity)
       )
     }
     return Array((workouts + quick).sorted { $0.completedAt > $1.completedAt }.prefix(limit))
@@ -363,7 +356,7 @@ final class AppModel: ObservableObject {
     switch activity {
     case .neck:
       return completedSessions(on: day, calendar: calendar).count
-    case .stand, .water:
+    case .stand, .water, .pelvicFloor:
       return activityHistoryStore.completions(on: day, calendar: calendar)
         .filter { $0.activity == activity }
         .count
@@ -389,6 +382,19 @@ final class AppModel: ObservableObject {
       lastUserFacingError = nil
     } catch {
       lastUserFacingError = "活动已完成，但记录保存失败：\(error.localizedDescription)"
+    }
+  }
+
+  private func completionDetail(for activity: WellnessActivityKind) -> String {
+    switch activity {
+    case .water:
+      return "按自己的节奏补水"
+    case .stand:
+      return "完成 2 分钟活动"
+    case .pelvicFloor:
+      return "完成 2 分钟跟练"
+    case .neck:
+      return ""
     }
   }
 }

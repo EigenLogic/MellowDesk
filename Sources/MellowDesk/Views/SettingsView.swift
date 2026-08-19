@@ -47,7 +47,7 @@ struct SettingsView: View {
       HStack {
         VStack(alignment: .leading, spacing: 2) {
           Text("工作间歇")
-          Text("三类活动共用一个提醒节奏")
+          Text("四类活动共用一个提醒节奏")
             .font(.caption)
             .foregroundStyle(.secondary)
         }
@@ -263,7 +263,7 @@ struct SettingsView: View {
         PillLabel(systemImage: "timer", text: "2 分钟")
       }
 
-      Toggle("在菜单栏显示提肛跟练", isOn: binding(\.pelvicFloorTrainingEnabled))
+      Toggle("启用提肛跟练（含自动提醒）", isOn: binding(\.pelvicFloorTrainingEnabled))
 
       Text(
         "跟随圆环完成收提、保持和充分放松。四个半分钟依次采用慢速、快速、快快慢和快提慢放节奏，练习过程自然呼吸。"
@@ -272,7 +272,7 @@ struct SettingsView: View {
       .foregroundStyle(.secondary)
       .fixedSize(horizontal: false, vertical: true)
 
-      Text("这是一项独立的日常盆底肌练习，不使用摄像头，也不进入提醒轮换或完成记录。")
+      Text("开启后会加入常规提醒轮换；完整练完会进入完成记录和趋势统计。练习不使用摄像头。")
         .font(.caption)
         .foregroundStyle(AppTheme.secondaryInk)
 

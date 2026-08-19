@@ -62,9 +62,9 @@ These sources support staying active and studying exercise interventions, but th
 
 Routine version / 内容版本: `pelvic-floor-v1.0`
 
-**English:** A two-minute paced pelvic-floor (Kegel) follow-along, enabled by default and available directly from the menu bar. It can be disabled in Settings. It is a visual pacing guide only: no camera, no sensor, no measurement, no completion record, and it never joins the reminder rotation. Twelve bars arranged as a clock face contract together toward the center while lifting, stay in while holding, and return outward while releasing; a dashed circle marks the relaxed position.
+**English:** A two-minute paced pelvic-floor (Kegel) follow-along, enabled by default, included in the regular reminder rotation, and available directly from the menu bar. It can be disabled in Settings. It is a visual pacing guide only: no camera, no sensor, and no movement measurement. Finishing the full guide records one local completion for history and statistics; skipping records nothing. Twelve bars arranged as a clock face contract together toward the center while lifting, stay in while holding, and return outward while releasing; a dashed circle marks the relaxed position.
 
-**中文：**一段两分钟的提肛跟练，默认开启，可从菜单栏直接开始，也可在设置中关闭。它只是节奏引导：不用摄像头、不使用传感器、不做识别、不计次判定、不写入完成记录，也不参与提醒轮换。12 根竖线排成表盘形状：收提时一起向圆心收缩，保持时停在内侧，放松时还原到外侧；虚线圆环标出放松位置。
+**中文：**一段两分钟的提肛跟练，默认开启并进入常规提醒轮换，也可从菜单栏直接开始或在设置中关闭。它只是节奏引导：不用摄像头、不使用传感器、不做识别、不计次判定。完整练完后会写入一条本地完成记录，供完成历史和统计使用；跳过不会记录。12 根竖线排成表盘形状：收提时一起向圆心收缩，保持时停在内侧，放松时还原到外侧；虚线圆环标出放松位置。
 
 | Segment | UI name | Tempo | Product dose |
 |---|---|---|---:|

@@ -17,6 +17,8 @@ extension WellnessActivityKind {
       return "喝水"
     case .neck:
       return "颈肩微运动"
+    case .pelvicFloor:
+      return "提肛跟练"
     }
   }
 
@@ -28,6 +30,8 @@ extension WellnessActivityKind {
       return "完成一次喝水打卡"
     case .neck:
       return "完成一组颈肩微运动"
+    case .pelvicFloor:
+      return "完成一组提肛跟练"
     }
   }
 
@@ -39,6 +43,8 @@ extension WellnessActivityKind {
       return "drop.fill"
     case .neck:
       return "figure.mind.and.body"
+    case .pelvicFloor:
+      return "slowmo"
     }
   }
 }

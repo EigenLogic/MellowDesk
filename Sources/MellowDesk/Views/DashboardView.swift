@@ -53,7 +53,7 @@ struct DashboardView: View {
         Text("今天也照顾好自己")
           .font(.system(size: 25, weight: .bold, design: .rounded))
           .foregroundStyle(AppTheme.ink)
-        Text("起身、补水和颈肩活动，按一个节奏轻松完成。")
+        Text("起身、补水、颈肩和提肛跟练，按一个节奏轻松完成。")
           .font(.subheadline)
           .foregroundStyle(.secondary)
           .lineLimit(1)
@@ -115,6 +115,7 @@ struct DashboardView: View {
       todayMetric(.stand)
       todayMetric(.water)
       todayMetric(.neck)
+      todayMetric(.pelvicFloor)
     }
     .appCard(padding: 14)
   }

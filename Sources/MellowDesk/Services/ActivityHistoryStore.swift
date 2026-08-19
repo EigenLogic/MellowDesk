@@ -2,7 +2,7 @@ import Combine
 import Foundation
 import MellowDeskCore
 
-/// Persists lightweight acknowledgements for water and stand-up reminders.
+/// Persists lightweight acknowledgements for water, stand-up, and pelvic-floor reminders.
 /// Neck-exercise sessions remain owned by `HistoryStore` and its richer workout schema.
 @MainActor
 final class ActivityHistoryStore: ObservableObject {
@@ -22,7 +22,7 @@ final class ActivityHistoryStore: ObservableObject {
     var errorDescription: String? {
       switch self {
       case .unsupportedActivity:
-        return "Only quick wellness activities can be written to activity history."
+        return "This activity cannot be written to lightweight activity history."
       }
     }
   }
@@ -69,10 +69,10 @@ final class ActivityHistoryStore: ObservableObject {
     loadFromDisk()
   }
 
-  /// Appends or replaces a quick-activity completion with the same identifier or source.
+  /// Appends or replaces an activity completion with the same identifier or source.
   /// The file is persisted before the observable in-memory value changes.
   func append(_ completion: ActivityCompletion) throws {
-    guard completion.activity.isQuickActivity else {
+    guard completion.activity.usesLightweightHistory else {
       throw StoreError.unsupportedActivity(completion.activity)
     }
 
@@ -138,7 +138,7 @@ final class ActivityHistoryStore: ObservableObject {
       }
       completions =
         decoded
-        .filter(\.activity.isQuickActivity)
+        .filter(\.activity.usesLightweightHistory)
         .sorted(by: Self.sortChronologically)
       lastErrorDescription = nil
     } catch {
