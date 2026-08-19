@@ -6,6 +6,14 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 No unreleased user-visible changes recorded.
 
+## [0.1.0-beta.6] - 2026-08-19
+
+### Fixed
+
+- Active follow-alongs remain above other apps after MellowDesk loses focus, until the user completes, skips, or explicitly hides the activity.
+
+See the full [v0.1.0-beta.6 release notes](docs/releases/v0.1.0-beta.6.md).
+
 ## [0.1.0-beta.5] - 2026-08-19
 
 ### Changed

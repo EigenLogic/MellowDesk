@@ -57,7 +57,7 @@
 
 ## 下载
 
-请从 [v0.1.0-beta.5 Release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.5)
+请从 [v0.1.0-beta.6 Release](https://github.com/EigenLogic/MellowDesk/releases/tag/v0.1.0-beta.6)
 下载经过 Apple 公证的 macOS 通用版本。Release 同时提供 SHA-256 校验文件。App 使用
 EigenLogic Developer ID 签名、启用 Hardened Runtime，并已通过 Apple 公证。
 
@@ -132,6 +132,7 @@ docs                         产品、技术、动作、测试和发布文档
 - [社区行为准则](CODE_OF_CONDUCT.md)
 - [安全政策](SECURITY.md)
 - [变更记录](CHANGELOG.md)
+- [v0.1.0-beta.6 发布说明](docs/releases/v0.1.0-beta.6.md)
 - [v0.1.0-beta.5 发布说明](docs/releases/v0.1.0-beta.5.md)
 - [v0.1.0-beta.4 发布说明](docs/releases/v0.1.0-beta.4.md)
 

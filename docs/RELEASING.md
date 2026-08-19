@@ -50,9 +50,9 @@ On a replacement signing Mac, import the backup with `-f` and the same `--accoun
 ```bash
 CODE_SIGN_IDENTITY="Developer ID Application: YOUR_ORGANIZATION (YOUR_TEAM_ID)" \
 NOTARY_PROFILE=mellowdesk-notary \
-RELEASE_VERSION=0.1.0-beta.5 \
+RELEASE_VERSION=0.1.0-beta.6 \
 APP_VERSION=0.1.0 \
-BUILD_NUMBER=5 \
+BUILD_NUMBER=6 \
 ./Scripts/package_release.sh
 ```
 
@@ -61,8 +61,8 @@ The script enforces a Developer ID signature and arm64 + x86_64 universal builds
 Successful notarization produces:
 
 ```text
-dist/MellowDesk-0.1.0-beta.5-macOS-universal.zip
-dist/MellowDesk-0.1.0-beta.5-macOS-universal.zip.sha256
+dist/MellowDesk-0.1.0-beta.6-macOS-universal.zip
+dist/MellowDesk-0.1.0-beta.6-macOS-universal.zip.sha256
 ```
 
 The script submits the archive, waits for acceptance, staples the ticket to the App, validates the staple, runs Gatekeeper assessment, recreates the archive with the stapled App, and writes the checksum.
@@ -72,7 +72,7 @@ The script submits the archive, waits for acceptance, staples the ticket to the 
 Extract the exact archive into a new temporary directory and verify the distributed copy:
 
 ```bash
-ditto -x -k dist/MellowDesk-0.1.0-beta.5-macOS-universal.zip /tmp/mellowdesk-release-check
+ditto -x -k dist/MellowDesk-0.1.0-beta.6-macOS-universal.zip /tmp/mellowdesk-release-check
 codesign --verify --deep --strict --verbose=2 /tmp/mellowdesk-release-check/MellowDesk.app
 xcrun stapler validate /tmp/mellowdesk-release-check/MellowDesk.app
 spctl --assess --type execute --verbose=4 /tmp/mellowdesk-release-check/MellowDesk.app
@@ -93,14 +93,14 @@ Also verify that `MellowDeskReleaseVersion` exactly matches the tag, `CFBundleVe
 The GitHub Release asset must exist before its appcast entry can be generated. Use this order:
 
 1. Confirm `origin/main` is the exact tested source SHA and the intended tag does not already exist.
-2. Create the immutable GitHub prerelease tag from that SHA, attach the ZIP and SHA-256 file from `dist/`, and use `docs/releases/v0.1.0-beta.5.md` as the release notes. Mark beta versions as prereleases. Never move or recreate a public tag.
+2. Create the immutable GitHub prerelease tag from that SHA, attach the ZIP and SHA-256 file from `dist/`, and use `docs/releases/v0.1.0-beta.6.md` as the release notes. Mark beta versions as prereleases. Never move or recreate a public tag.
 3. Download both assets from GitHub and repeat checksum, Gatekeeper, staple, nested-signature, architecture, version, and launch checks against the downloaded copy.
 4. Generate the appcast entry from that exact archive. The script reads the EdDSA key from Keychain account `mellowdesk`, embeds release notes, signs the update and feed, and refuses a missing archive, checksum, release note, signature, build number, or final GitHub download URL:
 
 ```bash
 SPARKLE_KEY_ACCOUNT=mellowdesk \
-RELEASE_VERSION=0.1.0-beta.5 \
-BUILD_NUMBER=5 \
+RELEASE_VERSION=0.1.0-beta.6 \
+BUILD_NUMBER=6 \
 ./Scripts/generate_appcast.sh
 ```
 
