@@ -21,13 +21,13 @@
     <key>CFBundleShortVersionString</key>
     <string>0.1.0</string>
     <key>CFBundleVersion</key>
-    <string>4</string>
+    <string>5</string>
     <key>LSMinimumSystemVersion</key>
     <string>13.0</string>
     <key>LSUIElement</key>
     <true/>
     <key>MellowDeskReleaseVersion</key>
-    <string>0.1.0-beta.4</string>
+    <string>0.1.0-beta.5</string>
     <key>NSCameraUsageDescription</key>
     <string>用于在颈部微运动过程中实时识别头部方向。摄像头画面仅在本机处理，不会保存或上传。</string>
     <key>NSHighResolutionCapable</key>
