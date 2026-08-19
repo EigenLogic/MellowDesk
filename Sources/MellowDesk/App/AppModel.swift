@@ -193,11 +193,11 @@ final class AppModel: ObservableObject {
     }
   }
 
-  func quickActivityDismissed(fromReminder: Bool) {
+  func quickActivitySkipped() {
     Task {
       await reminderScheduler.activityDismissed(
         settings: settings,
-        snoozeMinutes: fromReminder ? 10 : nil
+        advanceRotation: true
       )
     }
   }
@@ -242,9 +242,12 @@ final class AppModel: ObservableObject {
     return didSave
   }
 
-  func workoutDismissed() {
+  func workoutDismissed(skipped: Bool = false) {
     Task {
-      await reminderScheduler.workoutDismissed(settings: settings)
+      await reminderScheduler.workoutDismissed(
+        settings: settings,
+        advanceRotation: skipped
+      )
     }
   }
 

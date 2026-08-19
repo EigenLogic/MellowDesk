@@ -80,8 +80,8 @@ struct WorkoutView: View {
           .background(Color.primary.opacity(0.045), in: RoundedRectangle(cornerRadius: 10))
 
         HStack {
-          Button("暂不开始") {
-            AppWindowCoordinator.shared.closeWorkout()
+          Button("跳过本次") {
+            AppWindowCoordinator.shared.closeWorkout(skipped: true)
           }
           Spacer()
           Button {
@@ -289,8 +289,8 @@ struct WorkoutView: View {
 
   private var workoutControls: some View {
     HStack {
-      Button("结束本次") {
-        AppWindowCoordinator.shared.closeWorkout()
+      Button("跳过本次") {
+        AppWindowCoordinator.shared.closeWorkout(skipped: true)
       }
 
       if viewModel.usesCamera, viewModel.phase != .transitioning {

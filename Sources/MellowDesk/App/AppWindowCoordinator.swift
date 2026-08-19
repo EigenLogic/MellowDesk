@@ -19,19 +19,20 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
 
   private enum StatusPopoverMode: Equatable {
     case menu
+    case workout
+    case movement(UUID)
+    case pelvicFloor
+
+    var isActivity: Bool {
+      self != .menu
+    }
   }
 
   private var dashboardWindow: NSWindow?
   private var settingsWindow: NSWindow?
-  private var workoutWindow: NSWindow?
   private var workoutViewModel: WorkoutViewModel?
-  private var workoutCloseObserver: WindowCloseObserver?
-  private var movementBreakWindow: NSWindow?
-  private var movementBreakCloseObserver: WindowCloseObserver?
   private var movementBreakSessionID: UUID?
   private var movementBreakDidResolve = false
-  private var pelvicFloorWindow: NSWindow?
-  private var pelvicFloorCloseObserver: WindowCloseObserver?
   private var statusItem: NSStatusItem?
   private var statusPopover: NSPopover?
   private var statusPopoverMode: StatusPopoverMode?
@@ -39,19 +40,9 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   private var reminderContentIdentity = ReminderContentIdentity()
   private var desiredReminder: ReminderOccurrence?
   private var lastAudibleReminderID: String?
-  private var reminderWorkoutRestore: DispatchWorkItem?
-  private weak var pendingReminderWorkoutWindow: NSWindow?
-  private var reminderMovementBreakRestore: DispatchWorkItem?
-  private weak var pendingReminderMovementBreakWindow: NSWindow?
-  private var pendingInitialCameraAuthorizationWindow: NSWindow?
-  private var initialCameraAuthorizationRestoreFallback: DispatchWorkItem?
   private var updateReadyWindow: NSWindow?
   private var updateReadyVersion: String?
   private var updateReadyCloseObserver: WindowCloseObserver?
-  private let logger = Logger(
-    subsystem: "cn.eigenlogic.mellowdesk",
-    category: "camera-focus"
-  )
   private let reminderLogger = Logger(
     subsystem: "cn.eigenlogic.mellowdesk",
     category: "status-reminder"
@@ -182,188 +173,94 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   func showWorkout() {
-    dismissStatusMenu()
-    if let workoutWindow {
-      if workoutViewModel?.phase == .completed {
-        workoutWindow.close()
-      } else {
-        present(workoutWindow)
-        return
-      }
+    if workoutViewModel != nil {
+      showCurrentActivityPopover()
+      return
+    }
+    guard statusPopoverMode?.isActivity != true else {
+      showCurrentActivityPopover()
+      return
     }
 
     let viewModel = WorkoutViewModel(
       appModel: AppModel.shared,
       initialCameraAuthorizationDidResolve: { [weak self] in
-        self?.restoreWorkoutWindowAfterInitialCameraAuthorization()
+        self?.restoreWorkoutPopoverAfterInitialCameraAuthorization()
       }
     )
     let view = WorkoutView(viewModel: viewModel)
       .environmentObject(AppModel.shared)
-    let window = makeWindow(
-      title: "颈部微运动",
-      size: NSSize(width: 1000, height: 700),
-      minimumSize: NSSize(width: 860, height: 620),
-      rootView: view
-    )
-
-    let observer = WindowCloseObserver(
-      onClose: { [weak self, weak viewModel] in
-        viewModel?.windowDidClose()
-        self?.clearInitialCameraAuthorizationRestore()
-        self?.reminderWorkoutRestore?.cancel()
-        self?.reminderWorkoutRestore = nil
-        self?.pendingReminderWorkoutWindow = nil
-        self?.workoutWindow = nil
-        self?.workoutViewModel = nil
-        self?.workoutCloseObserver = nil
-      },
-      onMiniaturize: { [weak self, weak viewModel] in
-        self?.clearInitialCameraAuthorizationRestore()
-        viewModel?.workoutWindowDidBecomeHidden()
-      },
-      onDeminiaturize: { [weak viewModel] in
-        viewModel?.workoutWindowDidBecomeVisible()
-      }
-    )
-    window.delegate = observer
-    workoutCloseObserver = observer
     workoutViewModel = viewModel
-    workoutWindow = window
-    present(window)
+    presentStatusPopover(
+      mode: .workout,
+      contentSize: NSSize(width: 1000, height: 700),
+      behavior: .applicationDefined,
+      contentViewController: NSHostingController(rootView: view)
+    )
   }
 
-  /// A click inside a nonactivating reminder panel does not automatically activate
-  /// this accessory app. End the panel's mouse event first, then create and force-front
-  /// the explicitly requested workout before retrying normal key-window activation.
   func showWorkoutFromReminder() {
-    reminderWorkoutRestore?.cancel()
-    let present = DispatchWorkItem { [weak self] in
-      guard let self else { return }
-      self.showWorkout()
-      guard let workoutWindow = self.workoutWindow else { return }
-
-      self.pendingReminderWorkoutWindow = workoutWindow
-      workoutWindow.orderFrontRegardless()
-      self.requestApplicationActivation()
-      self.reminderLogger.notice(
-        "Reminder workout force-fronted; appActive=\(NSApp.isActive, privacy: .public)"
-      )
-      let fallback = DispatchWorkItem { [weak self, weak workoutWindow] in
-        guard let self, let workoutWindow, workoutWindow === self.workoutWindow else { return }
-        if NSApp.isActive {
-          workoutWindow.makeKeyAndOrderFront(nil)
-        } else {
-          workoutWindow.orderFrontRegardless()
-        }
-        self.pendingReminderWorkoutWindow = nil
-        self.reminderWorkoutRestore = nil
-      }
-      self.reminderWorkoutRestore = fallback
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: fallback)
+    DispatchQueue.main.async { [weak self] in
+      self?.showWorkout()
     }
-    reminderWorkoutRestore = present
-    DispatchQueue.main.async(execute: present)
   }
 
-  /// Reminder panels do not activate this menu-bar app. Let the panel's click finish,
-  /// then create the requested break window and explicitly restore it to the front.
   func showMovementBreakFromReminder(_ occurrence: ReminderOccurrence) {
     guard occurrence.activity.isQuickActivity else { return }
-    reminderMovementBreakRestore?.cancel()
-
-    let show = DispatchWorkItem { [weak self] in
-      guard let self else { return }
-      let window = self.prepareMovementBreakWindow(
+    DispatchQueue.main.async { [weak self] in
+      self?.prepareMovementBreakPopover(
         activity: occurrence.activity,
-        sourceID: occurrence.id,
-        fromReminder: true
+        sourceID: occurrence.id
       )
-
-      self.pendingReminderMovementBreakWindow = window
-      window.orderFrontRegardless()
-      self.requestApplicationActivation()
-      self.reminderLogger.notice(
-        "Reminder movement break force-fronted; appActive=\(NSApp.isActive, privacy: .public)"
-      )
-
-      let fallback = DispatchWorkItem { [weak self, weak window] in
-        guard let self, let window, window === self.movementBreakWindow else { return }
-        if NSApp.isActive {
-          window.makeKeyAndOrderFront(nil)
-        } else {
-          window.orderFrontRegardless()
-        }
-        self.pendingReminderMovementBreakWindow = nil
-        self.reminderMovementBreakRestore = nil
-      }
-      self.reminderMovementBreakRestore = fallback
-      DispatchQueue.main.asyncAfter(deadline: .now() + 0.45, execute: fallback)
     }
-    reminderMovementBreakRestore = show
-    DispatchQueue.main.async(execute: show)
   }
 
   func showManualMovementBreak() {
-    dismissStatusMenu()
-    if let movementBreakWindow {
-      present(movementBreakWindow)
+    if movementBreakSessionID != nil {
+      showCurrentActivityPopover()
       return
     }
-
-    let window = prepareMovementBreakWindow(
-      activity: .stand,
-      sourceID: nil,
-      fromReminder: false
-    )
-    present(window)
+    prepareMovementBreakPopover(activity: .stand, sourceID: nil)
   }
 
   func showPelvicFloorBreak() {
-    dismissStatusMenu()
-    if let pelvicFloorWindow {
-      present(pelvicFloorWindow)
+    if statusPopoverMode == .pelvicFloor {
+      showCurrentActivityPopover()
+      return
+    }
+    guard statusPopoverMode?.isActivity != true else {
+      showCurrentActivityPopover()
       return
     }
 
     let view = PelvicFloorBreakView(
       onClose: { [weak self] in
-        self?.pelvicFloorWindow?.close()
+        self?.finishPelvicFloorBreak()
       }
     )
-    let window = makeWindow(
-      title: "提肛跟练",
-      size: NSSize(width: 560, height: 700),
-      minimumSize: NSSize(width: 520, height: 640),
-      rootView: view
+    presentStatusPopover(
+      mode: .pelvicFloor,
+      contentSize: NSSize(width: 560, height: 700),
+      behavior: .applicationDefined,
+      contentViewController: NSHostingController(rootView: view)
     )
-    let observer = WindowCloseObserver(
-      onClose: { [weak self, weak window] in
-        guard let self, let window, window === self.pelvicFloorWindow else { return }
-        self.pelvicFloorWindow = nil
-        self.pelvicFloorCloseObserver = nil
-        AppModel.shared.pelvicFloorBreakDismissed()
-      },
-      onMiniaturize: {},
-      onDeminiaturize: {}
-    )
-    window.delegate = observer
-
-    pelvicFloorWindow = window
-    pelvicFloorCloseObserver = observer
-    present(window)
   }
 
-  func closeWorkout() {
-    workoutWindow?.close()
+  func closeWorkout(skipped: Bool = false) {
+    guard let workoutViewModel else { return }
+    workoutViewModel.windowDidClose(skipped: skipped)
+    self.workoutViewModel = nil
+    finishStatusActivity(mode: .workout)
   }
 
-  private func prepareMovementBreakWindow(
+  private func prepareMovementBreakPopover(
     activity: WellnessActivityKind,
-    sourceID: String?,
-    fromReminder: Bool
-  ) -> NSWindow {
-    movementBreakWindow?.close()
+    sourceID: String?
+  ) {
+    guard statusPopoverMode?.isActivity != true else {
+      showCurrentActivityPopover()
+      return
+    }
 
     let sessionID = UUID()
     let view = MovementBreakView(
@@ -373,7 +270,6 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
           sessionID: sessionID,
           activity: activity,
           sourceID: sourceID,
-          fromReminder: fromReminder,
           completed: true
         )
       },
@@ -382,43 +278,24 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
           sessionID: sessionID,
           activity: activity,
           sourceID: sourceID,
-          fromReminder: fromReminder,
           completed: false
         )
       }
     )
-    let window = makeWindow(
-      title: activity == .water ? "喝水与起身活动" : "起身活动",
-      size: NSSize(width: 620, height: 520),
-      minimumSize: NSSize(width: 560, height: 480),
-      rootView: view
-    )
-    let observer = WindowCloseObserver(
-      onClose: { [weak self, weak window] in
-        guard let window else { return }
-        self?.movementBreakWindowDidClose(
-          window,
-          sessionID: sessionID,
-          fromReminder: fromReminder
-        )
-      },
-      onMiniaturize: {},
-      onDeminiaturize: {}
-    )
-    window.delegate = observer
-
-    movementBreakWindow = window
-    movementBreakCloseObserver = observer
     movementBreakSessionID = sessionID
     movementBreakDidResolve = false
-    return window
+    presentStatusPopover(
+      mode: .movement(sessionID),
+      contentSize: NSSize(width: 620, height: 520),
+      behavior: .applicationDefined,
+      contentViewController: NSHostingController(rootView: view)
+    )
   }
 
   private func resolveMovementBreak(
     sessionID: UUID,
     activity: WellnessActivityKind,
     sourceID: String?,
-    fromReminder: Bool,
     completed: Bool
   ) {
     guard movementBreakSessionID == sessionID, !movementBreakDidResolve else { return }
@@ -427,29 +304,17 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     if completed {
       AppModel.shared.completeQuickActivity(activity, sourceID: sourceID)
     } else {
-      AppModel.shared.quickActivityDismissed(fromReminder: fromReminder)
+      AppModel.shared.quickActivitySkipped()
     }
-    movementBreakWindow?.close()
-  }
-
-  private func movementBreakWindowDidClose(
-    _ window: NSWindow,
-    sessionID: UUID,
-    fromReminder: Bool
-  ) {
-    guard movementBreakWindow === window, movementBreakSessionID == sessionID else { return }
-    if !movementBreakDidResolve {
-      movementBreakDidResolve = true
-      AppModel.shared.quickActivityDismissed(fromReminder: fromReminder)
-    }
-
-    reminderMovementBreakRestore?.cancel()
-    reminderMovementBreakRestore = nil
-    pendingReminderMovementBreakWindow = nil
-    movementBreakWindow = nil
-    movementBreakCloseObserver = nil
     movementBreakSessionID = nil
     movementBreakDidResolve = false
+    finishStatusActivity(mode: .movement(sessionID))
+  }
+
+  private func finishPelvicFloorBreak() {
+    guard statusPopoverMode == .pelvicFloor else { return }
+    AppModel.shared.pelvicFloorBreakDismissed()
+    finishStatusActivity(mode: .pelvicFloor)
   }
 
   func syncReminder(_ occurrence: ReminderOccurrence?) {
@@ -458,6 +323,7 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
       reminderPanel?.orderOut(nil)
       return
     }
+    guard statusPopoverMode?.isActivity != true else { return }
     showReminderPanel(occurrence)
   }
 
@@ -468,34 +334,17 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   func applicationDidBecomeActive() {
-    if let pendingReminderWorkoutWindow,
-      pendingReminderWorkoutWindow === workoutWindow,
-      pendingReminderWorkoutWindow.isVisible
-    {
-      pendingReminderWorkoutWindow.makeKeyAndOrderFront(nil)
-      self.pendingReminderWorkoutWindow = nil
-      reminderWorkoutRestore?.cancel()
-      reminderWorkoutRestore = nil
+    if statusPopoverMode == .workout, statusPopover?.isShown == true {
+      workoutViewModel?.workoutWindowDidBecomeVisible()
     }
-    if let pendingReminderMovementBreakWindow,
-      pendingReminderMovementBreakWindow === movementBreakWindow,
-      pendingReminderMovementBreakWindow.isVisible
+    if statusPopoverMode?.isActivity != true,
+      let activeReminder = AppModel.shared.activeReminder
     {
-      pendingReminderMovementBreakWindow.makeKeyAndOrderFront(nil)
-      self.pendingReminderMovementBreakWindow = nil
-      reminderMovementBreakRestore?.cancel()
-      reminderMovementBreakRestore = nil
-    }
-    if let activeReminder = AppModel.shared.activeReminder {
       showReminderPanel(activeReminder)
     }
-    guard let workoutWindow, workoutWindow.isVisible, !workoutWindow.isMiniaturized else { return }
-    workoutViewModel?.workoutWindowDidBecomeVisible()
-    scheduleInitialCameraAuthorizationRestoreIfNeeded()
   }
 
   func applicationDidHide() {
-    clearInitialCameraAuthorizationRestore()
     workoutViewModel?.workoutWindowDidBecomeHidden()
   }
 
@@ -506,11 +355,24 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   func popoverDidClose(_ notification: Notification) {
-    statusPopoverMode = nil
+    switch statusPopoverMode {
+    case .menu:
+      statusPopoverMode = nil
+    case .workout:
+      workoutViewModel?.workoutWindowDidBecomeHidden()
+    case .movement, .pelvicFloor, .none:
+      break
+    }
   }
 
   @objc private func statusItemClicked(_ sender: Any?) {
-    if let activeReminder = AppModel.shared.activeReminder {
+    if statusPopoverMode?.isActivity == true {
+      if statusPopover?.isShown == true {
+        statusPopover?.close()
+      } else {
+        showCurrentActivityPopover()
+      }
+    } else if let activeReminder = AppModel.shared.activeReminder {
       showReminderPanel(activeReminder)
     } else if statusPopover?.isShown == true {
       statusPopover?.close()
@@ -525,15 +387,18 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     let view = MenuBarContentView()
       .environmentObject(AppModel.shared)
     presentStatusPopover(
+      mode: .menu,
       contentSize: MenuBarContentView.contentSize(
         for: AppModel.shared.settings,
         updateReady: AppModel.shared.readyUpdateVersion != nil
       ),
+      behavior: .transient,
       contentViewController: NSHostingController(rootView: view)
     )
   }
 
   private func showReminderPanel(_ occurrence: ReminderOccurrence) {
+    guard statusPopoverMode?.isActivity != true else { return }
     statusPopover?.close()
     statusPopoverMode = nil
 
@@ -608,19 +473,32 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   private func presentStatusPopover(
+    mode: StatusPopoverMode,
     contentSize: NSSize,
+    behavior: NSPopover.Behavior,
     contentViewController: NSViewController
   ) {
     guard let button = statusItem?.button, let popover = statusPopover else { return }
 
     let show: @MainActor @Sendable () -> Void = { [weak self, weak popover, weak button] in
       guard let self, let popover, let button else { return }
-      guard self.desiredReminder == nil else { return }
-      popover.behavior = .transient
+      if mode == .menu {
+        guard self.desiredReminder == nil else { return }
+      } else {
+        self.reminderPanel?.orderOut(nil)
+      }
+      popover.behavior = behavior
       popover.contentSize = contentSize
       popover.contentViewController = contentViewController
-      self.statusPopoverMode = .menu
+      self.statusPopoverMode = mode
       popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
+      if mode.isActivity {
+        popover.contentViewController?.view.window?.level = .floating
+        popover.contentViewController?.view.window?.hidesOnDeactivate = false
+      }
+      if mode == .workout {
+        self.workoutViewModel?.workoutWindowDidBecomeVisible()
+      }
     }
 
     if popover.isShown {
@@ -631,88 +509,35 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     }
   }
 
-  private func restoreWorkoutWindowAfterInitialCameraAuthorization() {
-    guard let workoutWindow,
-      workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
-      workoutWindow.isVisible,
-      !workoutWindow.isMiniaturized,
-      workoutWindow.isOnActiveSpace,
-      !NSApp.isHidden
+  private func showCurrentActivityPopover() {
+    guard statusPopoverMode?.isActivity == true,
+      let button = statusItem?.button,
+      let popover = statusPopover
     else { return }
-
-    clearInitialCameraAuthorizationRestore()
-    pendingInitialCameraAuthorizationWindow = workoutWindow
-    logger.notice("Camera authorization resolved; waiting for application activation")
-
-    let fallback = DispatchWorkItem { [weak self, weak workoutWindow] in
-      guard let self,
-        let workoutWindow,
-        self.pendingInitialCameraAuthorizationWindow === workoutWindow
-      else { return }
-      self.finishInitialCameraAuthorizationRestoreIfPossible(
-        allowingInactiveVisualFallback: true
-      )
+    popover.behavior = .applicationDefined
+    if !popover.isShown {
+      popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
-    initialCameraAuthorizationRestoreFallback = fallback
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.6, execute: fallback)
-
-    requestApplicationActivation()
-    if NSApp.isActive {
-      scheduleInitialCameraAuthorizationRestoreIfNeeded()
+    popover.contentViewController?.view.window?.level = .floating
+    popover.contentViewController?.view.window?.hidesOnDeactivate = false
+    if statusPopoverMode == .workout {
+      workoutViewModel?.workoutWindowDidBecomeVisible()
     }
   }
 
-  private func scheduleInitialCameraAuthorizationRestoreIfNeeded() {
-    guard pendingInitialCameraAuthorizationWindow != nil else { return }
+  private func finishStatusActivity(mode: StatusPopoverMode) {
+    guard statusPopoverMode == mode else { return }
+    statusPopoverMode = nil
+    statusPopover?.close()
+    statusPopover?.contentViewController = NSViewController()
+  }
+
+  private func restoreWorkoutPopoverAfterInitialCameraAuthorization() {
+    guard statusPopoverMode == .workout,
+      workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true
+    else { return }
     DispatchQueue.main.async { [weak self] in
-      self?.finishInitialCameraAuthorizationRestoreIfPossible()
-    }
-  }
-
-  private func finishInitialCameraAuthorizationRestoreIfPossible(
-    allowingInactiveVisualFallback: Bool = false
-  ) {
-    guard let pendingWindow = pendingInitialCameraAuthorizationWindow,
-      pendingWindow === workoutWindow,
-      workoutViewModel?.canRestoreAfterInitialCameraAuthorization == true,
-      pendingWindow.isVisible,
-      !pendingWindow.isMiniaturized,
-      pendingWindow.isOnActiveSpace,
-      !NSApp.isHidden
-    else {
-      clearInitialCameraAuthorizationRestore()
-      return
-    }
-
-    if allowingInactiveVisualFallback {
-      if NSApp.isActive {
-        pendingWindow.makeKeyAndOrderFront(nil)
-        logger.notice("Workout window confirmed after camera authorization")
-      } else {
-        // macOS can decline activation requests from an accessory app. This
-        // one-shot fallback only restores visibility after the user-triggered
-        // camera prompt; it does not change the window level or stay on top.
-        pendingWindow.orderFrontRegardless()
-        logger.notice("Workout window restored visibly after activation was declined")
-      }
-      clearInitialCameraAuthorizationRestore()
-      return
-    }
-
-    guard NSApp.isActive else {
-      requestApplicationActivation()
-      return
-    }
-
-    pendingWindow.makeKeyAndOrderFront(nil)
-    logger.notice("Application became active while camera focus restore was pending")
-  }
-
-  private func requestApplicationActivation() {
-    if #available(macOS 14.0, *) {
-      NSApp.activate()
-    } else {
-      NSApp.activate(ignoringOtherApps: true)
+      self?.showCurrentActivityPopover()
     }
   }
 
@@ -724,12 +549,6 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     image?.isTemplate = true
     button.image = image
     button.toolTip = description
-  }
-
-  private func clearInitialCameraAuthorizationRestore() {
-    pendingInitialCameraAuthorizationWindow = nil
-    initialCameraAuthorizationRestoreFallback?.cancel()
-    initialCameraAuthorizationRestoreFallback = nil
   }
 
   private func makeWindow<Content: View>(

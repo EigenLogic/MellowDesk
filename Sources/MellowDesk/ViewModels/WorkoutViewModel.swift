@@ -360,7 +360,7 @@ final class WorkoutViewModel: ObservableObject {
     }
   }
 
-  func windowDidClose() {
+  func windowDidClose(skipped: Bool = false) {
     guard !didClose else { return }
     didClose = true
     transitionWorkItem?.cancel()
@@ -369,7 +369,7 @@ final class WorkoutViewModel: ObservableObject {
     cameraService.motionSampleHandler = nil
     cameraService.stop()
     if phase != .completed {
-      appModel.workoutDismissed()
+      appModel.workoutDismissed(skipped: skipped)
     }
   }
 

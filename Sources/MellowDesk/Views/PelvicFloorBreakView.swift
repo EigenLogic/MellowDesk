@@ -183,8 +183,11 @@ struct PelvicFloorBreakView: View {
       Button {
         onClose()
       } label: {
-        Label(didFinish ? "完成" : "结束", systemImage: didFinish ? "checkmark" : "xmark")
-          .frame(minWidth: 112)
+        Label(
+          didFinish ? "完成" : "跳过本次",
+          systemImage: didFinish ? "checkmark" : "forward.end"
+        )
+        .frame(minWidth: 112)
       }
       .buttonStyle(.borderedProminent)
       .tint(AppTheme.accent)

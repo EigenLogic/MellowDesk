@@ -407,13 +407,14 @@ final class ReminderScheduler: ObservableObject {
   func activityDismissed(
     at date: Date = Date(),
     settings: AppSettings,
-    snoozeMinutes: Int? = nil
+    snoozeMinutes: Int? = nil,
+    advanceRotation: Bool = false
   ) async {
     isActivityActive = false
     activeSettings = settings
     clearActiveReminder()
     if let interruptedSlot = inProgressReminderSlot {
-      setScheduledSlot(interruptedSlot)
+      setScheduledSlot(interruptedSlot + (advanceRotation ? 1 : 0))
     }
     inProgressReminderSlot = nil
     let due: Date?
@@ -430,8 +431,16 @@ final class ReminderScheduler: ObservableObject {
     await replacePendingNotification(dueAt: due, settings: settings, now: date)
   }
 
-  func workoutDismissed(at date: Date = Date(), settings: AppSettings) async {
-    await activityDismissed(at: date, settings: settings)
+  func workoutDismissed(
+    at date: Date = Date(),
+    settings: AppSettings,
+    advanceRotation: Bool = false
+  ) async {
+    await activityDismissed(
+      at: date,
+      settings: settings,
+      advanceRotation: advanceRotation
+    )
   }
 
   func snoozeTenMinutes(from date: Date = Date(), settings: AppSettings) async {
