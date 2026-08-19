@@ -232,6 +232,31 @@ final class ReminderSchedulerTests: XCTestCase {
     XCTAssertNotNil(context.client.requests[occurrence.notificationRequestIdentifier])
   }
 
+  func testSkippedActivityAdvancesRotationWithoutRecordingCompletion() async throws {
+    let context = makeContext()
+    defer { context.clearDefaults() }
+    let now = date(2030, 8, 12, 10, 0)
+    let due = now.addingTimeInterval(50 * 60)
+    let scheduler = context.makeScheduler()
+    await scheduler.settingsDidChange(settings, now: now)
+    await scheduler.reconcileDue(settings: settings, now: due)
+    let standReminder = try XCTUnwrap(scheduler.activeReminder)
+    XCTAssertTrue(scheduler.activityStarted(reminderID: standReminder.id))
+
+    await scheduler.activityDismissed(
+      at: due,
+      settings: settings,
+      advanceRotation: true
+    )
+
+    XCTAssertEqual(scheduler.nextActivity, .water)
+    XCTAssertEqual(scheduler.nextDue, due.addingTimeInterval(50 * 60))
+    XCTAssertEqual(
+      context.defaults.integer(forKey: ReminderScheduler.nextSlotDefaultsKey),
+      1
+    )
+  }
+
   func testDismissedQuickActivitySchedulesAfterAnActivePause() async throws {
     let context = makeContext()
     defer { context.clearDefaults() }

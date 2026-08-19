@@ -148,7 +148,7 @@ struct MovementBreakView: View {
 
   private var actions: some View {
     HStack(spacing: 10) {
-      Button("稍后再说") {
+      Button("跳过本次") {
         resolve(onCancel)
       }
       .keyboardShortcut(.cancelAction)

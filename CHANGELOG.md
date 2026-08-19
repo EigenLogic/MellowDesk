@@ -4,7 +4,8 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 ## Unreleased
 
-- No unreleased user-visible changes recorded.
+- Neck, movement, hydration, and pelvic-floor follow-alongs now run inside a sticky menu-bar popover instead of separate activity windows.
+- Every follow-along offers **Skip This Time**. Skipping writes no completion history and advances an active reminder to the next activity.
 
 ## [0.1.0-beta.4] - 2026-08-14
 

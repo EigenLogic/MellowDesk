@@ -23,7 +23,7 @@ Run the full local check:
 ./Scripts/check.sh
 ```
 
-The check validates property lists, runs swift-format when available, executes the 80 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
+The check validates property lists, runs swift-format when available, executes the 81 deterministic tests, builds the release product, and assembles `build/MellowDesk.app`.
 
 For a faster development launch:
 
