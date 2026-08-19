@@ -344,6 +344,13 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     }
   }
 
+  func applicationDidResignActive() {
+    guard statusPopoverMode?.isActivity == true, statusPopover?.isShown == true else { return }
+    DispatchQueue.main.async { [weak self] in
+      self?.pinActivityPopover()
+    }
+  }
+
   func applicationDidHide() {
     workoutViewModel?.workoutWindowDidBecomeHidden()
   }
@@ -493,8 +500,10 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
       self.statusPopoverMode = mode
       popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
       if mode.isActivity {
-        popover.contentViewController?.view.window?.level = .floating
-        popover.contentViewController?.view.window?.hidesOnDeactivate = false
+        self.pinActivityPopover()
+        DispatchQueue.main.async { [weak self] in
+          self?.pinActivityPopover()
+        }
       }
       if mode == .workout {
         self.workoutViewModel?.workoutWindowDidBecomeVisible()
@@ -518,11 +527,24 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     if !popover.isShown {
       popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
     }
-    popover.contentViewController?.view.window?.level = .floating
-    popover.contentViewController?.view.window?.hidesOnDeactivate = false
+    pinActivityPopover()
+    DispatchQueue.main.async { [weak self] in
+      self?.pinActivityPopover()
+    }
     if statusPopoverMode == .workout {
       workoutViewModel?.workoutWindowDidBecomeVisible()
     }
+  }
+
+  private func pinActivityPopover() {
+    guard statusPopoverMode?.isActivity == true,
+      statusPopover?.isShown == true,
+      let window = statusPopover?.contentViewController?.view.window
+    else { return }
+    window.level = .statusBar
+    window.hidesOnDeactivate = false
+    window.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary, .ignoresCycle]
+    window.orderFrontRegardless()
   }
 
   private func finishStatusActivity(mode: StatusPopoverMode) {

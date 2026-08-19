@@ -23,6 +23,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
     AppWindowCoordinator.shared.applicationDidBecomeActive()
   }
 
+  func applicationDidResignActive(_ notification: Notification) {
+    AppWindowCoordinator.shared.applicationDidResignActive()
+  }
+
   func applicationDidHide(_ notification: Notification) {
     AppWindowCoordinator.shared.applicationDidHide()
   }
