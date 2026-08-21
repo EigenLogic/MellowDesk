@@ -1,6 +1,6 @@
 # MellowDesk Privacy Policy / 小桌伴隐私政策
 
-Effective date / 生效日期: 2026-08-19
+Effective date / 生效日期: 2026-08-21
 
 Applies to / 适用版本: v0.1.0-beta.1 and later / 及后续版本
 
@@ -15,7 +15,7 @@ MellowDesk is designed for local use. The app does not create an account, send a
 - Frames are processed in memory with AVFoundation and Vision on this Mac.
 - Frames are used to estimate face presence and approximate head direction for live counting.
 - Video, still images, audio, face templates, and frame-by-frame head angles are not written to disk.
-- Camera inputs and outputs are removed when the routine ends, is closed, or the workout window is hidden.
+- Camera inputs and outputs are removed when the neck routine is completed or skipped. While a neck follow-along is active, clicking the menu-bar leaf keeps that visible routine and its camera session active.
 - MellowDesk does not identify who you are and does not perform face recognition.
 
 ### Data stored on this Mac
@@ -74,7 +74,7 @@ Material changes to data handling will update this file, its effective date, and
 - 画面使用 AVFoundation 和 Vision 在这台 Mac 的内存中处理。
 - 画面只用于判断人脸是否有效，并估算头部方向以进行实时计次。
 - 视频、照片、音频、人脸模板和逐帧头部角度不会写入磁盘。
-- 训练完成、关闭或训练窗口隐藏后，App 会停止摄像头并移除采集输入输出。
+- 颈肩跟练完成或跳过后，App 会停止摄像头并移除采集输入输出。颈肩跟练进行中，点击状态栏叶子会保持跟练面板可见，摄像头也会继续工作。
 - 小桌伴不识别用户身份，也不做人脸识别。
 
 ### 保存在本机的数据

@@ -6,6 +6,14 @@ This file records user-visible changes to MellowDesk. Dates use the YYYY-MM-DD f
 
 No unreleased user-visible changes recorded.
 
+## [0.1.0-beta.7] - 2026-08-21
+
+### Fixed
+
+- Active follow-alongs can no longer be hidden by clicking the menu-bar leaf and recover automatically if their popover closes unexpectedly, preventing an unresolved activity from silently stopping later reminders.
+
+See the full [v0.1.0-beta.7 release notes](docs/releases/v0.1.0-beta.7.md).
+
 ## [0.1.0-beta.6] - 2026-08-19
 
 ### Changed
