@@ -7,6 +7,56 @@ IMPORTANT: This file was signed by Sparkle. Any modifications to this file requi
         <title>MellowDesk</title>
         <item>
             <title>0.1.0</title>
+            <pubDate>Fri, 21 Aug 2026 13:42:34 +0800</pubDate>
+            <sparkle:version>7</sparkle:version>
+            <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>13.0</sparkle:minimumSystemVersion>
+            <description sparkle:format="markdown"><![CDATA[# MellowDesk v0.1.0-beta.7 / 小桌伴 v0.1.0-beta.7
+
+Release date / 发布日期: 2026-08-21
+
+Status / 状态: public beta / 公开测试版
+
+## Overview / 概览
+
+Beta.7 closes a silent-stall path in active follow-alongs. Clicking the menu-bar leaf during neck, movement, hydration, or pelvic-floor activity now restores and keeps the current activity in front instead of hiding it while the reminder schedule remains paused.
+
+Beta.7 修复了跟练过程中可能静默中断后续提醒的问题。进行颈肩、起身、补水或提肛跟练时，点击状态栏叶子现在只会恢复并置顶当前活动，不再把面板隐藏在“活动仍进行中、提醒已暂停”的状态。
+
+## Fixed / 修复
+
+- The menu-bar leaf is now a return-to-current-activity control while a follow-along is active, not a hide toggle.
+- If macOS or another lifecycle event unexpectedly closes the active popover, MellowDesk restores the same activity automatically.
+- Completion and skip remain the only actions that close an activity and release the reminder schedule; unfinished activity is never recorded as completed.
+- 跟练进行中，状态栏叶子改为“返回当前活动”，不再作为收起开关。
+- 如果 macOS 或其他生命周期事件意外关闭活动 Popover，小桌伴会自动恢复同一次跟练。
+- 只有完成或跳过才会关闭活动并继续提醒计划；未完成的活动不会被误记为完成。
+
+## Compatibility and privacy / 兼容性与隐私
+
+Existing settings, reminder state, and completion history remain readable. This update adds no permissions, network destinations, accounts, analytics, or telemetry. The camera remains local-only and is used only during neck follow-alongs; because the menu-bar leaf no longer hides an active routine, its camera session now continues until completion or skip.
+
+原有设置、提醒状态和完成记录会继续保留。本次更新不新增权限、网络地址、账号、分析或遥测。摄像头仍只在颈肩跟练时于本机使用；由于状态栏叶子不再隐藏活动，摄像头会持续到完成或跳过。
+
+## Validation / 验证
+
+- 85 deterministic tests pass.
+- 85 项确定性自动测试通过。
+
+## Download and install / 下载与安装
+
+The GitHub Release provides a notarized universal `arm64 + x86_64` archive and SHA-256 checksum. Existing beta.4-or-later users can receive beta.7 through MellowDesk's signed in-app updater after the release appcast is activated.
+
+GitHub Release 提供经 Apple 公证的 `arm64 + x86_64` 通用压缩包和 SHA-256 校验文件。签名 appcast 生效后，已安装 beta.4 或更高版本的用户可通过小桌伴 App 内更新获取 beta.7。
+
+MellowDesk is available under the [Apache License 2.0](../../LICENSE). See [NOTICE](../../NOTICE).
+
+MellowDesk 使用 [Apache License 2.0](../../LICENSE)，归属信息见 [NOTICE](../../NOTICE)。
+]]></description>
+            <enclosure url="https://github.com/EigenLogic/MellowDesk/releases/download/v0.1.0-beta.7/MellowDesk-0.1.0-beta.7-macOS-universal.zip" length="2884234" type="application/octet-stream" sparkle:edSignature="n/qrSjz2rmIJzXbWFHed89YyV15dBQE7odtBWa537RACxC2cp8WRQLREBfuOvi1aX6ku0B6B+VfAl6gJ3I5PAQ=="/>
+        </item>
+        <item>
+            <title>0.1.0</title>
             <pubDate>Wed, 19 Aug 2026 17:40:07 +0800</pubDate>
             <sparkle:version>6</sparkle:version>
             <sparkle:shortVersionString>0.1.0</sparkle:shortVersionString>
@@ -239,6 +289,6 @@ MellowDesk 使用 [Apache License 2.0](../../LICENSE)，归属信息见 [NOTICE]
     </channel>
 </rss>
 <!-- sparkle-signatures:
-edSignature: 3D0YvvJUUmpCcvGR9aiVJkBUmua2fwGWpKSYCeSEkRBPac8wcGNGau2YwJxskKpADrx0jxXc71jCLR2cvyKqAQ==
-length: 19761
+edSignature: //qOwNVZJTksRbbcHrF24pUBjjaVealrTiV3tiNY93ZygVZKnAlkzPVUTgJfF4nSz9GX/U4CP3v6ZFEeVqrMBQ==
+length: 23377
 -->
