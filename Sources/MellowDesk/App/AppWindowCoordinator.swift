@@ -352,12 +352,11 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
   }
 
   func applicationDidBecomeActive() {
-    if statusPopoverMode == .workout, statusPopover?.isShown == true {
-      workoutViewModel?.workoutWindowDidBecomeVisible()
+    if statusPopoverMode?.isActivity == true {
+      showCurrentActivityPopover()
+      return
     }
-    if statusPopoverMode?.isActivity != true,
-      let activeReminder = AppModel.shared.activeReminder
-    {
+    if let activeReminder = AppModel.shared.activeReminder {
       showReminderPanel(activeReminder)
     }
   }
@@ -385,18 +384,17 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
       statusPopoverMode = nil
     case .workout:
       workoutViewModel?.workoutWindowDidBecomeHidden()
-    case .movement, .pelvicFloor, .none:
+      restoreCurrentActivityPopover()
+    case .movement, .pelvicFloor:
+      restoreCurrentActivityPopover()
+    case .none:
       break
     }
   }
 
   @objc private func statusItemClicked(_ sender: Any?) {
     if statusPopoverMode?.isActivity == true {
-      if statusPopover?.isShown == true {
-        statusPopover?.close()
-      } else {
-        showCurrentActivityPopover()
-      }
+      showCurrentActivityPopover()
     } else if let activeReminder = AppModel.shared.activeReminder {
       showReminderPanel(activeReminder)
     } else if statusPopover?.isShown == true {
@@ -570,6 +568,13 @@ final class AppWindowCoordinator: NSObject, NSPopoverDelegate {
     statusPopoverMode = nil
     statusPopover?.close()
     statusPopover?.contentViewController = NSViewController()
+  }
+
+  private func restoreCurrentActivityPopover() {
+    guard statusPopoverMode?.isActivity == true else { return }
+    DispatchQueue.main.async { [weak self] in
+      self?.showCurrentActivityPopover()
+    }
   }
 
   private func restoreWorkoutPopoverAfterInitialCameraAuthorization() {
